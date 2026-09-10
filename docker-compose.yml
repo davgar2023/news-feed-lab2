@@ -1,0 +1,135 @@
+x-app-environment: &app-environment
+  NODE_ENV: production
+  DATABASE_URL: postgres://newsfeed_app:newsfeed_app@postgres:5432/newsfeed
+  REDIS_URL: redis://redis:6379
+  RABBITMQ_URL: amqp://newsfeed:newsfeed@rabbitmq:5672
+  CELEBRITY_THRESHOLD: ${CELEBRITY_THRESHOLD:-100000}
+  TIMELINE_MAX_ITEMS: ${TIMELINE_MAX_ITEMS:-1000}
+  OUTBOX_POLL_INTERVAL_MS: ${OUTBOX_POLL_INTERVAL_MS:-500}
+  RABBITMQ_PREFETCH: ${RABBITMQ_PREFETCH:-20}
+  RABBITMQ_MAX_RETRIES: ${RABBITMQ_MAX_RETRIES:-3}
+
+x-app-service: &app-service
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    target: runtime
+  restart: unless-stopped
+  environment: *app-environment
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+  networks:
+    - newsfeed
+
+services:
+  postgres:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: newsfeed
+      POSTGRES_USER: newsfeed_owner
+      POSTGRES_PASSWORD: newsfeed_owner
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database:/database-init:ro
+      - ./docker/postgres/run-init.sh:/docker-entrypoint-initdb.d/00-run-migrations.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U newsfeed_owner -d newsfeed"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - newsfeed
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - newsfeed
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: newsfeed
+      RABBITMQ_DEFAULT_PASS: newsfeed
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    ports:
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - newsfeed
+
+  api:
+    <<: *app-service
+    command: ["node", "dist/server.js"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  outbox-worker:
+    <<: *app-service
+    command: ["node", "dist/workers/outboxPublisher.js"]
+
+  fanout-worker:
+    <<: *app-service
+    command: ["node", "dist/workers/fanoutWorker.js"]
+
+  cleanup-worker:
+    <<: *app-service
+    command: ["node", "dist/workers/cleanupWorker.js"]
+
+  rebuild-worker:
+    <<: *app-service
+    command: ["node", "dist/workers/rebuildWorker.js"]
+
+  nginx:
+    image: nginx:1.29-alpine
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - newsfeed
+
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:
+
+networks:
+  newsfeed:
+    driver: bridge
