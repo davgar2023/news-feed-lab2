@@ -11,9 +11,6 @@ BEGIN
 END
 $bootstrap_roles$;
 
-ALTER ROLE newsfeed_owner
-  WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION INHERIT;
-
 ALTER ROLE newsfeed_app
   WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOINHERIT;
 
@@ -34,7 +31,11 @@ $grant_owner_to_migrator$;
 DO $grant_database_connect$
 BEGIN
   EXECUTE pg_catalog.format(
-    'GRANT CONNECT ON DATABASE %I TO newsfeed_owner, newsfeed_app',
+    'GRANT CONNECT, CREATE ON DATABASE %I TO newsfeed_owner',
+    pg_catalog.current_database()
+  );
+  EXECUTE pg_catalog.format(
+    'GRANT CONNECT ON DATABASE %I TO newsfeed_app',
     pg_catalog.current_database()
   );
 END
@@ -43,3 +44,8 @@ $grant_database_connect$;
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 REVOKE ALL ON SCHEMA public FROM newsfeed_app;
 GRANT USAGE, CREATE ON SCHEMA public TO newsfeed_owner;
+
+-- Demote a Docker-bootstrap owner only after every administrator-only bootstrap
+-- action above has completed.
+ALTER ROLE newsfeed_owner
+  WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION INHERIT;
