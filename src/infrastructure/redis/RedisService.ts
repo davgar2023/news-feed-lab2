@@ -75,7 +75,7 @@ export class RedisService {
       pipeline.zadd(key, score, postId);
       pipeline.zremrangebyrank(key, 0, -(this.maxTimelineItems + 1));
     }
-    await pipeline.exec();
+    await this.exec(pipeline);
   }
 
   async getTimeline(
@@ -132,7 +132,12 @@ export class RedisService {
   }
 
   async exec(pipeline: ChainableCommander): Promise<unknown> {
-    return pipeline.exec();
+    const results = await pipeline.exec();
+    if (!results) throw new Error("Redis pipeline was not executed");
+    for (const [error] of results) {
+      if (error) throw error;
+    }
+    return results;
   }
 
   async removeFromTimelines(userIds: readonly string[], postIds: readonly string[]): Promise<void> {
@@ -141,7 +146,7 @@ export class RedisService {
     for (const userId of new Set(userIds)) {
       pipeline.zrem(redisKeys.timeline(userId), ...postIds);
     }
-    await pipeline.exec();
+    await this.exec(pipeline);
   }
 
   async replaceTimeline(userId: string, entries: readonly TimelineEntry[]): Promise<void> {
@@ -153,7 +158,7 @@ export class RedisService {
       pipeline.zadd(key, ...values);
       pipeline.zremrangebyrank(key, 0, -(this.maxTimelineItems + 1));
     }
-    await pipeline.exec();
+    await this.exec(pipeline);
   }
 
   async healthCheck(): Promise<boolean> {
@@ -180,7 +185,7 @@ export class RedisService {
     const pipeline = this.redis.pipeline();
     pipeline.zadd(key, score, postId);
     pipeline.zremrangebyrank(key, 0, -(this.maxTimelineItems + 1));
-    await pipeline.exec();
+    await this.exec(pipeline);
   }
 
   private async readSortedSet(

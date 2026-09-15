@@ -8,7 +8,7 @@ type ValueOf<T> = T extends unknown ? T[keyof T] : never;
 export type ApprovedRoutine = ValueOf<RoutineGroup>;
 
 export interface RoutineExecutor {
-  callFunction<Row extends QueryResultRow = QueryResultRow>(
+  callFunction<Row = QueryResultRow>(
     routine: ApprovedRoutine,
     parameters?: readonly unknown[],
   ): Promise<Row[]>;
@@ -53,14 +53,14 @@ function createPoolConfig(): PoolConfig {
   };
 }
 
-async function executeFunction<Row extends QueryResultRow>(
+async function executeFunction<Row>(
   client: Pick<PoolClient, "query">,
   routine: ApprovedRoutine,
   parameters: readonly unknown[],
 ): Promise<Row[]> {
   const sql = `SELECT * FROM ${quoteRoutine(routine)}(${placeholders(parameters.length)})`;
-  const result = await client.query<Row>(sql, [...parameters]);
-  return result.rows;
+  const result = await client.query<QueryResultRow>(sql, [...parameters]);
+  return result.rows as Row[];
 }
 
 async function executeProcedure(
@@ -95,7 +95,7 @@ export async function withClient<T>(work: (client: PoolClient) => Promise<T>): P
   }
 }
 
-export async function callFunction<Row extends QueryResultRow = QueryResultRow>(
+export async function callFunction<Row = QueryResultRow>(
   routine: ApprovedRoutine,
   parameters: readonly unknown[] = [],
 ): Promise<Row[]> {
@@ -115,7 +115,7 @@ export async function transaction<T>(work: TransactionWork<T>): Promise<T> {
   return withClient(async (client) => {
     await client.query("BEGIN");
     const executor: RoutineExecutor = {
-      callFunction: <Row extends QueryResultRow = QueryResultRow>(
+      callFunction: <Row = QueryResultRow>(
         routine: ApprovedRoutine,
         parameters: readonly unknown[] = [],
       ) => executeFunction<Row>(client, routine, parameters),
@@ -163,7 +163,7 @@ export class Database implements RoutineExecutor {
     return withClient(work);
   }
 
-  callFunction<Row extends QueryResultRow = QueryResultRow>(
+  callFunction<Row = QueryResultRow>(
     routine: ApprovedRoutine,
     parameters: readonly unknown[] = [],
   ): Promise<Row[]> {

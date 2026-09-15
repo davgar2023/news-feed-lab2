@@ -55,15 +55,29 @@ export class RabbitMQConnection {
     this.prefetchCount = options.prefetch ?? config?.RABBITMQ_PREFETCH ?? 20;
     this.maxRetries = options.maxRetries ?? config?.RABBITMQ_MAX_RETRIES ?? 3;
     this.reconnectDelayMs = options.reconnectDelayMs ?? config?.RABBITMQ_RECONNECT_DELAY_MS ?? 1000;
+    if (!Number.isSafeInteger(this.prefetchCount) || this.prefetchCount <= 0) {
+      throw new Error("RabbitMQ prefetch must be a positive integer");
+    }
+    if (!Number.isSafeInteger(this.maxRetries) || this.maxRetries < 0) {
+      throw new Error("RabbitMQ maxRetries cannot be negative");
+    }
+    if (!Number.isSafeInteger(this.reconnectDelayMs) || this.reconnectDelayMs <= 0) {
+      throw new Error("RabbitMQ reconnectDelayMs must be a positive integer");
+    }
   }
 
   async connect(): Promise<void> {
     if (this.closing) throw new Error("RabbitMQ connection is closing");
     if (this.connection && this.publisher && this.consumerChannel) return;
     if (!this.connecting) {
-      this.connecting = this.open().finally(() => {
-        this.connecting = undefined;
-      });
+      this.connecting = this.open()
+        .catch((error: unknown) => {
+          this.scheduleReconnect();
+          throw error;
+        })
+        .finally(() => {
+          this.connecting = undefined;
+        });
     }
     return this.connecting;
   }
@@ -121,6 +135,7 @@ export class RabbitMQConnection {
     if (this.closing) return;
     this.closing = true;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    await this.connecting?.catch(() => undefined);
 
     const consumerChannel = this.consumerChannel;
     const publisher = this.publisher;
@@ -142,8 +157,11 @@ export class RabbitMQConnection {
     publisher.on("error", () => undefined);
     consumerChannel.on("error", () => undefined);
     connection.once("close", () => this.onConnectionClosed(connection));
+    publisher.once("close", () => this.onChannelClosed(connection));
+    consumerChannel.once("close", () => this.onChannelClosed(connection));
 
     try {
+      if (this.closing) throw new Error("RabbitMQ connection is closing");
       await this.configureTopology(publisher);
       await consumerChannel.prefetch(this.prefetchCount);
       this.connection = connection;
@@ -267,6 +285,11 @@ export class RabbitMQConnection {
     this.consumerChannel = undefined;
     for (const registration of this.consumers) registration.consumerTag = undefined;
     this.scheduleReconnect();
+  }
+
+  private onChannelClosed(connection: ChannelModel): void {
+    if (this.closing || this.connection !== connection) return;
+    void connection.close().catch(() => undefined);
   }
 
   private scheduleReconnect(): void {
