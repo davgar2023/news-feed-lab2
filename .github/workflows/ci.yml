@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_DB: newsfeed
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d newsfeed"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+      rabbitmq:
+        image: rabbitmq:4-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: newsfeed
+          RABBITMQ_DEFAULT_PASS: newsfeed
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      NODE_ENV: test
+      DATABASE_ADMIN_URL: postgres://postgres:postgres@127.0.0.1:5432/newsfeed
+      MIGRATION_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/newsfeed
+      DATABASE_URL: postgres://newsfeed_app:newsfeed_app@127.0.0.1:5432/newsfeed
+      REDIS_URL: redis://127.0.0.1:6379
+      RABBITMQ_URL: amqp://newsfeed:newsfeed@127.0.0.1:5672
+      CELEBRITY_THRESHOLD: 5
+      TIMELINE_MAX_ITEMS: 1000
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run verify:database-policy
+      - name: Apply migrations
+        run: ./database/scripts/migrate.sh
+      - run: npm run seed
+      - run: npm test
+      - run: npm run test:integration
