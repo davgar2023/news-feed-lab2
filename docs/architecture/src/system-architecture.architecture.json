@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "News Feed — arquitectura contratada",
+    "viewBox": [1180, 560],
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "client",
+      "type": "external",
+      "label": "Client",
+      "sublabel": "HTTP consumer",
+      "pos": [35, 200],
+      "size": [120, 62]
+    },
+    {
+      "id": "nginx",
+      "type": "cloud",
+      "label": "Nginx",
+      "sublabel": "reverse proxy",
+      "pos": [205, 200],
+      "size": [120, 62]
+    },
+    {
+      "id": "node",
+      "type": "backend",
+      "label": "Node.js + TypeScript",
+      "sublabel": "modular monolith",
+      "pos": [375, 200],
+      "size": [155, 62]
+    },
+    {
+      "id": "modules",
+      "type": "backend",
+      "label": "Users · Posts · Feed",
+      "sublabel": "controller → service → repository",
+      "pos": [580, 200],
+      "size": [175, 62]
+    },
+    {
+      "id": "database",
+      "type": "security",
+      "label": "Database",
+      "sublabel": "routine allowlist + pg.Pool",
+      "pos": [805, 200],
+      "size": [165, 62]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "source of truth",
+      "pos": [1020, 200],
+      "size": [130, 62]
+    },
+    {
+      "id": "packages",
+      "type": "security",
+      "label": "pkg_* schemas",
+      "sublabel": "public database API",
+      "pos": [805, 50],
+      "size": [165, 62]
+    },
+    {
+      "id": "outbox",
+      "type": "database",
+      "label": "outbox_events",
+      "sublabel": "transactional events",
+      "pos": [1020, 330],
+      "size": [130, 62]
+    },
+    {
+      "id": "publisher",
+      "type": "backend",
+      "label": "Outbox Publisher",
+      "sublabel": "poll + publish",
+      "pos": [805, 440],
+      "size": [165, 62]
+    },
+    {
+      "id": "rabbit",
+      "type": "messagebus",
+      "label": "newsfeed.events",
+      "sublabel": "RabbitMQ topic exchange",
+      "pos": [580, 440],
+      "size": [175, 62]
+    },
+    {
+      "id": "workers",
+      "type": "backend",
+      "label": "Workers",
+      "sublabel": "fanout · cleanup · rebuild",
+      "pos": [355, 440],
+      "size": [175, 62]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": "materialized timelines",
+      "pos": [130, 440],
+      "size": [175, 62]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Aplicación: monolito modular + procesos worker independientes",
+      "wraps": ["node", "modules", "database", "publisher", "workers"]
+    }
+  ],
+  "connections": [
+    { "from": "client", "to": "nginx", "label": "HTTP" },
+    { "from": "nginx", "to": "node", "label": "proxy" },
+    { "from": "node", "to": "modules", "label": "routes" },
+    {
+      "from": "modules",
+      "to": "database",
+      "label": "repository calls",
+      "variant": "emphasis",
+      "labelAt": [780, 276]
+    },
+    {
+      "from": "database",
+      "to": "postgres",
+      "label": "CALL / SELECT pkg_*",
+      "variant": "security",
+      "labelAt": [995, 276]
+    },
+    { "from": "database", "to": "packages", "label": "allowlist", "variant": "security" },
+    { "from": "packages", "to": "postgres", "label": "routines", "variant": "security" },
+    {
+      "from": "postgres",
+      "to": "outbox",
+      "label": "same transaction",
+      "variant": "emphasis",
+      "labelAt": [1085, 296]
+    },
+    { "from": "outbox", "to": "publisher", "label": "pkg_outbox.get_pending_events" },
+    { "from": "publisher", "to": "rabbit", "label": "persistent publish", "labelAt": [780, 516] },
+    { "from": "rabbit", "to": "workers", "label": "manual ACK", "labelAt": [555, 516] },
+    {
+      "from": "workers",
+      "to": "redis",
+      "label": "idempotent updates",
+      "variant": "emphasis",
+      "labelAt": [330, 516]
+    }
+  ]
+}

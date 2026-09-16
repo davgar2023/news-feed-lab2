@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Creación de post — contrato objetivo",
+    "viewBox": [1060, 650],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    { "id": "client", "type": "external", "label": "Client", "sublabel": "HTTP" },
+    {
+      "id": "controller",
+      "type": "frontend",
+      "label": "Posts Controller",
+      "sublabel": "POST /api/posts"
+    },
+    {
+      "id": "service",
+      "type": "backend",
+      "label": "PostService",
+      "sublabel": "business orchestration"
+    },
+    {
+      "id": "repository",
+      "type": "backend",
+      "label": "PostRepository",
+      "sublabel": "contract adapter"
+    },
+    { "id": "database", "type": "security", "label": "Database", "sublabel": "routine allowlist" },
+    { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "pkg_posts" }
+  ],
+  "segments": [
+    { "from": 150, "to": 300, "label": "Solicitud síncrona" },
+    { "from": 315, "to": 430, "label": "Transacción atómica" },
+    { "from": 445, "to": 575, "label": "Respuesta" }
+  ],
+  "messages": [
+    {
+      "from": "client",
+      "to": "controller",
+      "y": 180,
+      "label": "POST /api/posts",
+      "variant": "emphasis"
+    },
+    { "from": "controller", "to": "service", "y": 218, "label": "create(authorId, content)" },
+    { "from": "service", "to": "repository", "y": 256, "label": "create(authorId, content)" },
+    { "from": "repository", "to": "database", "y": 294, "label": "callFunction(...)" },
+    {
+      "from": "database",
+      "to": "postgres",
+      "y": 332,
+      "label": "pkg_posts.create_post",
+      "variant": "security"
+    },
+    {
+      "from": "postgres",
+      "to": "database",
+      "y": 378,
+      "label": "Post + outbox event committed",
+      "variant": "emphasis",
+      "note": "Una sola transacción PostgreSQL"
+    },
+    { "from": "database", "to": "repository", "y": 424, "label": "Post", "variant": "return" },
+    { "from": "repository", "to": "service", "y": 470, "label": "Post", "variant": "return" },
+    { "from": "service", "to": "controller", "y": 516, "label": "created", "variant": "return" },
+    { "from": "controller", "to": "client", "y": 562, "label": "HTTP 201", "variant": "return" }
+  ]
+}

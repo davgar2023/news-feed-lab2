@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Transactional Outbox — publicación y retry",
+    "viewBox": [1080, 690],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    { "id": "postrepo", "type": "backend", "label": "PostRepository", "sublabel": "create post" },
+    { "id": "database", "type": "security", "label": "Database", "sublabel": "approved routines" },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "posts + outbox_events"
+    },
+    {
+      "id": "publisher",
+      "type": "backend",
+      "label": "Outbox Publisher",
+      "sublabel": "poll every interval"
+    },
+    { "id": "rabbit", "type": "messagebus", "label": "RabbitMQ", "sublabel": "newsfeed.events" }
+  ],
+  "segments": [
+    { "from": 150, "to": 300, "label": "Commit atómico" },
+    { "from": 315, "to": 490, "label": "Publicación" },
+    { "from": 505, "to": 615, "label": "Resultado" }
+  ],
+  "messages": [
+    {
+      "from": "postrepo",
+      "to": "database",
+      "y": 180,
+      "label": "callFunction(pkg_posts.create_post)",
+      "variant": "security"
+    },
+    { "from": "database", "to": "postgres", "y": 216, "label": "BEGIN" },
+    {
+      "from": "postgres",
+      "to": "database",
+      "y": 252,
+      "label": "COMMIT post + PENDING outbox",
+      "variant": "emphasis"
+    },
+    { "from": "database", "to": "postrepo", "y": 288, "label": "Post", "variant": "return" },
+    {
+      "from": "publisher",
+      "to": "database",
+      "y": 324,
+      "label": "pkg_outbox.get_pending_events(limit)",
+      "variant": "security"
+    },
+    { "from": "database", "to": "postgres", "y": 360, "label": "approved routine only" },
+    {
+      "from": "postgres",
+      "to": "publisher",
+      "y": 396,
+      "label": "DomainEvent[]",
+      "variant": "return"
+    },
+    {
+      "from": "publisher",
+      "to": "rabbit",
+      "y": 432,
+      "label": "persistent publish + confirm",
+      "variant": "emphasis"
+    },
+    {
+      "from": "rabbit",
+      "to": "publisher",
+      "y": 468,
+      "label": "confirmed / failed",
+      "variant": "return"
+    },
+    {
+      "from": "publisher",
+      "to": "database",
+      "y": 504,
+      "label": "pkg_outbox.mark_published",
+      "variant": "emphasis"
+    },
+    {
+      "from": "publisher",
+      "to": "database",
+      "y": 540,
+      "label": "or pkg_outbox.mark_failed(error)",
+      "variant": "dashed"
+    },
+    { "from": "database", "to": "postgres", "y": 576, "label": "status + retry_count + last_error" }
+  ]
+}
