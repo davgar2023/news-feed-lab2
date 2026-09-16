@@ -18,11 +18,12 @@
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --exclude tests/integration/**",
-    "test:integration": "vitest run tests/integration",
+    "test": "vitest run --exclude 'tests/integration/**'",
+    "test:integration": "vitest run --no-file-parallelism tests/integration",
+    "test:migrations:docker": "sh scripts/verify/migrations-docker.sh",
     "test:all": "vitest run",
-    "verify:database-policy": "tsx scripts/verify/database-policy.ts",
-    "seed": "tsx scripts/seed.ts"
+    "verify:database-policy": "node --import tsx scripts/verify/database-policy.ts",
+    "seed": "node --import tsx scripts/seed.ts"
   },
   "dependencies": {
     "amqplib": "^2.0.1",
