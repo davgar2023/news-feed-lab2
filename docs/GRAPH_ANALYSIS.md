@@ -1,55 +1,96 @@
 # Análisis Graphify
 
-## Snapshot analizado
+## Snapshot final analizado
 
-| Campo                      | Valor verificable en esta rama                     |
-| -------------------------- | -------------------------------------------------- |
-| Rama                       | `agent/docs`                                       |
-| Base                       | `16ef739` (`contracts-v1`)                         |
-| Contenido disponible       | contratos TypeScript, configuración y metadata npm |
-| `graphify-out/`            | ausente en este snapshot                           |
-| Alcance del análisis final | árbol integrado de `develop`                       |
+| Campo                    | Valor                                                                       |
+| ------------------------ | --------------------------------------------------------------------------- |
+| Rama                     | `develop`                                                                   |
+| Commit base del análisis | `e366b55`                                                                   |
+| Graphify                 | `0.9.56`                                                                    |
+| Corpus                   | 66 archivos de código/configuración y 15 documentos                         |
+| Grafo                    | 631 nodos, 1,264 relaciones, 40 comunidades                                 |
+| Incremento desde Wave 0  | 494 nodos y 1,116 relaciones                                                |
+| Salud                    | 0 endpoints faltantes, 0 dangling edges, 0 self-loops, 0 colapsos dirigidos |
 
-No se atribuyen ciclos, god modules ni caminos runtime a un grafo que todavía no existe en esta rama. Esta estructura se actualiza después de generar Graphify sobre el árbol integrado.
+Los artefactos reproducibles están en `graphify-out/graph.json`,
+`graphify-out/graph.html` y `graphify-out/GRAPH_REPORT.md`. Los HTML, SVG y PNG
+generados por Archify se excluyen del corpus mediante `.graphifyignore`; sus fuentes
+JSON y el inventario Markdown siguen formando parte de la revisión de deriva.
 
-## Hallazgos factuales del snapshot
+## Dependencias y capas
 
-- `src/contracts/index.ts` reexporta `database`, `events`, `http`, `models`, `repositories` y `topology`.
-- `repositories.ts` depende sólo de tipos de `events.ts` y `models.ts`.
-- `src/config/env.ts` depende de Zod y define todos los parámetros de PostgreSQL, Redis, RabbitMQ, fan-out y proxy.
-- No hay controllers, services, repositories concretos, workers ni infraestructura para trazar en este branch.
-- No hay SQL para verificar calls contra cuerpos de rutinas en este branch.
+- Los controllers importan servicios o contratos HTTP; no importan `pg`, `ioredis` ni
+  `amqplib`.
+- Los repositories de Users, Posts, Feed y Outbox convergen en `Database` y en la
+  allowlist `DATABASE_ROUTINES`.
+- `Database.ts` es el único módulo que construye `SELECT * FROM pkg_*` y `CALL pkg_*`;
+  el scanner AST confirma que no existe SQL de tablas de negocio en runtime.
+- `TimelineRepository` es la frontera entre Feed y `RedisService`. El path Graphify
+  `FeedController <- feed.routes.ts <- feed/index.ts -> TimelineRepository.ts -> RedisService`
+  muestra que Redis no llega al controller.
+- `OutboxPublisher <- outboxPublisher.ts -> RabbitMQConnection` confirma que la
+  publicación asíncrona vive en el worker y no en el endpoint de Posts.
 
-## Consultas obligatorias post-integración
+## Rutas críticas
 
-| Pregunta                                       | Evidencia Graphify requerida          | Resultado                    |
-| ---------------------------------------------- | ------------------------------------- | ---------------------------- |
-| ¿Hay ciclos entre módulos?                     | SCC/cycle report                      | Sin evaluar en este snapshot |
-| ¿Se respeta controller → service → repository? | paths desde routes/controllers        | Sin evaluar en este snapshot |
-| ¿Todo acceso PostgreSQL pasa por `Database`?   | callers de pool/query y rutinas       | Sin evaluar en este snapshot |
-| ¿Quién publica a RabbitMQ?                     | path desde outbox publisher           | Sin evaluar en este snapshot |
-| ¿Quién consume cada queue?                     | bindings/call paths de workers        | Sin evaluar en este snapshot |
-| ¿Redis queda detrás de repositories/services?  | callers de `ioredis`                  | Sin evaluar en este snapshot |
-| ¿Existen god modules?                          | centralidad, tamaño y fan-in/fan-out  | Sin evaluar en este snapshot |
-| ¿Fanout usa `pkg_users.get_followers`?         | path event → worker → routine → Redis | Sin evaluar en este snapshot |
-| ¿Timeline implementa merge híbrido?            | path HTTP → FeedService → Redis/pkg_* | Sin evaluar en este snapshot |
+### Creación y fan-out
 
-## Procedimiento de actualización
+`PostController -> PostService -> PostRepository -> Database ->
+pkg_posts.create_post()` persiste post y evento de outbox en una única función SQL.
+`OutboxPublisher -> RabbitMQConnection -> FanoutWorker -> UserRepository ->
+pkg_users.get_followers() -> RedisService.fanOutPost()` materializa timelines para
+autores normales. Las celebridades escriben en `author_posts:{userId}`.
 
-```bash
-graphify update .
-```
+### Timeline híbrido
 
-Después:
+`FeedController -> FeedService -> TimelineRepository/FeedRepository` combina
+`timeline:{userId}` con posts recientes de cuentas celebridad. Antes de responder,
+`pkg_feed.validate_feed_items()` elimina posts borrados o ya no autorizados; el
+servicio deduplica, ordena descendente y pagina con cursor compuesto estable.
 
-1. registrar commit exacto y versión de Graphify;
-2. confirmar `graph.html`, `graph.json` y `GRAPH_REPORT.md`;
-3. ejecutar consultas de la tabla anterior;
-4. enlazar nodos/paths concretos y describir sólo resultados observados;
-5. corregir acoplamientos o ciclos indeseados;
-6. regenerar el grafo tras cada corrección;
-7. comparar el grafo final con los JSON Archify y registrar PASS/FAIL del drift gate.
+### Follow y unfollow
 
-## Registro final de deriva
+`UserController -> UserService -> UserRepository -> pkg_users.follow_user()` y
+`pkg_users.unfollow_user()` generan eventos en la misma transacción. Rebuild y
+Cleanup consumen esos eventos, son idempotentes mediante `processed_events` y
+actualizan únicamente proyecciones Redis reconstruibles.
 
-La integración debe completar una fila por elemento: módulos `users/posts/feed`, `Database`, schemas `pkg_*`, Outbox Publisher, workers, exchange/queues, routing keys y claves Redis. Cada fila debe indicar evidencia de código, evidencia de grafo, diagrama correspondiente y veredicto.
+## Centralidad y acoplamiento
+
+Los nodos con mayor conectividad son `RedisService` (30),
+`RabbitMQConnection` (26), `RoutineExecutor` (19), `Database` (18),
+`UserRepository` (16) y `OutboxRepository` (16). Esta centralidad es esperada en
+adaptadores de infraestructura y fronteras de persistencia; ninguno mezcla lógica
+HTTP, SQL de negocio y mensajería en el mismo módulo.
+
+Graphify no detectó ciclos de imports. El análisis SCC encontró tres ciclos internos
+de dos métodos dentro de `RabbitMQConnection`: `connect/scheduleReconnect`,
+`publish/publishBuffer` y `consume/startConsumer`. Son bucles operativos de
+reconexión/configuración dentro de un único adaptador, no dependencias circulares
+entre módulos.
+
+## Conexiones semánticas
+
+La extracción documental confirmó tres relaciones que también están implementadas:
+
+- acceso mediante rutinas es equivalente al API de paquetes PostgreSQL;
+- post y evento se escriben atómicamente mediante el outbox;
+- las proyecciones Redis son reconstruibles porque PostgreSQL es la fuente de verdad.
+
+Los hyperedges de Graphify agrupan correctamente el flujo durable de eventos, el
+timeline híbrido y la evidencia de release multiagente.
+
+## Architecture drift gate
+
+| Elemento documentado              | Evidencia de código/grafo                          | Diagrama                                      | Estado |
+| --------------------------------- | -------------------------------------------------- | --------------------------------------------- | ------ |
+| `users`, `posts`, `feed`          | `src/modules/*` y comunidades Users/Post/Feed      | `system-architecture`                         | PASS   |
+| `Database` y `pkg_*`              | `Database.ts`, migraciones 003–006                 | `system-architecture`, `post-created-flow`    | PASS   |
+| Outbox Publisher                  | `src/workers/outboxPublisher.ts`                   | `transactional-outbox`                        | PASS   |
+| Fanout/Cleanup/Rebuild            | `src/workers/*Worker.ts`                           | `fanout-write`, `follow-unfollow`             | PASS   |
+| `newsfeed.events` y cuatro queues | contratos + `RabbitMQConnection.configureTopology` | `system-architecture`, `transactional-outbox` | PASS   |
+| `timeline:*` y `author_posts:*`   | `redisKeys`, `RedisService`                        | `fanout-write`, `hybrid-feed`                 | PASS   |
+| Feed híbrido                      | `FeedService.timeline()`                           | `hybrid-feed`                                 | PASS   |
+| Git branches/worktrees            | historial Git y `git worktree list`                | `multi-agent-git`                             | PASS   |
+
+No se observó deriva arquitectónica que requiera cambiar código o diagramas.

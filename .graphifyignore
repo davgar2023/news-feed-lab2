@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+docs/architecture/*.html
+docs/architecture/*.svg
+docs/architecture/*.png
+docs/architecture/*.visual-check.json
+graphify-out/cache/
