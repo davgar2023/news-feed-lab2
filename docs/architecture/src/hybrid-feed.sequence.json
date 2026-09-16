@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Feed híbrido — fan-out on read",
+    "viewBox": [1080, 690],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    { "id": "client", "type": "external", "label": "Client", "sublabel": "timeline request" },
+    { "id": "feed", "type": "backend", "label": "FeedService", "sublabel": "hybrid merge" },
+    { "id": "timeline", "type": "database", "label": "Timeline Repo", "sublabel": "Redis adapter" },
+    { "id": "redis", "type": "database", "label": "Redis", "sublabel": "timeline + author_posts" },
+    { "id": "users", "type": "security", "label": "pkg_users", "sublabel": "celebrity following" },
+    { "id": "posts", "type": "security", "label": "pkg_posts", "sublabel": "pkg_feed validation" },
+    {
+      "id": "composer",
+      "type": "backend",
+      "label": "Feed Composer",
+      "sublabel": "merge + pagination"
+    }
+  ],
+  "segments": [
+    { "from": 150, "to": 300, "label": "Timeline precomputado" },
+    { "from": 315, "to": 475, "label": "Streams celebrity" },
+    { "from": 490, "to": 615, "label": "Merge y página" }
+  ],
+  "messages": [
+    {
+      "from": "client",
+      "to": "feed",
+      "y": 180,
+      "label": "GET /api/timeline?cursor=…",
+      "variant": "emphasis"
+    },
+    { "from": "feed", "to": "timeline", "y": 216, "label": "read timeline:{userId}" },
+    { "from": "timeline", "to": "redis", "y": 252, "label": "ZRANGE by score DESC" },
+    { "from": "redis", "to": "timeline", "y": 288, "label": "normal postIds", "variant": "return" },
+    {
+      "from": "feed",
+      "to": "users",
+      "y": 324,
+      "label": "pkg_users.get_celebrity_following",
+      "variant": "security"
+    },
+    { "from": "users", "to": "feed", "y": 360, "label": "celebrityIds", "variant": "return" },
+    { "from": "feed", "to": "redis", "y": 396, "label": "read author_posts:{celebrityId}" },
+    {
+      "from": "feed",
+      "to": "posts",
+      "y": 432,
+      "label": "get recent + validate visible",
+      "variant": "security"
+    },
+    { "from": "posts", "to": "feed", "y": 468, "label": "Post[]", "variant": "return" },
+    {
+      "from": "feed",
+      "to": "composer",
+      "y": 504,
+      "label": "normal + celebrity streams",
+      "variant": "emphasis"
+    },
+    {
+      "from": "composer",
+      "to": "feed",
+      "y": 540,
+      "label": "dedupe · DESC · Top N",
+      "variant": "return"
+    },
+    {
+      "from": "feed",
+      "to": "client",
+      "y": 576,
+      "label": "TimelinePage + nextCursor",
+      "variant": "return"
+    }
+  ]
+}

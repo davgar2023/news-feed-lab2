@@ -1,0 +1,129 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Git multiagente — ramas, worktrees e integración",
+    "viewBox": [1120, 660],
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "architect", "label": "Lead Architect" },
+    { "id": "agents", "label": "Agentes Wave 1" },
+    { "id": "integration", "label": "Integration Agent" },
+    { "id": "release", "label": "Final Review" }
+  ],
+  "phases": [
+    { "id": "freeze", "label": "Wave 0", "fromCol": 0, "toCol": 0 },
+    { "id": "parallel", "label": "Wave 1", "fromCol": 1, "toCol": 2, "variant": "emphasis" },
+    { "id": "integrate", "label": "Waves 2–4", "fromCol": 3, "toCol": 4 },
+    { "id": "final", "label": "Wave 5", "fromCol": 5, "toCol": 5, "variant": "security" }
+  ],
+  "mainPath": [
+    "contracts",
+    "worktrees",
+    "agentcommits",
+    "mergedevelop",
+    "qualitygates",
+    "releasecommit"
+  ],
+  "semanticChecks": {
+    "allowedRoots": ["contracts"],
+    "allowedTerminals": ["releasecommit"],
+    "requiredPaths": [
+      { "from": "contracts", "to": "releasecommit" },
+      { "from": "mergedevelop", "to": "qualitygates" }
+    ]
+  },
+  "nodes": [
+    {
+      "id": "contracts",
+      "lane": "architect",
+      "col": 0,
+      "width": 136,
+      "type": "security",
+      "label": "Freeze contracts",
+      "sublabel": "contracts-v1",
+      "tag": "Wave 0"
+    },
+    {
+      "id": "worktrees",
+      "lane": "agents",
+      "col": 1,
+      "width": 136,
+      "type": "cloud",
+      "label": "Create worktrees",
+      "sublabel": "one branch per agent"
+    },
+    {
+      "id": "agentcommits",
+      "lane": "agents",
+      "col": 2,
+      "width": 136,
+      "type": "frontend",
+      "label": "Logical commits",
+      "sublabel": "Conventional Commits"
+    },
+    {
+      "id": "mergedevelop",
+      "lane": "integration",
+      "col": 3,
+      "width": 144,
+      "type": "backend",
+      "label": "Merge into develop",
+      "sublabel": "dependency order"
+    },
+    {
+      "id": "qualitygates",
+      "lane": "integration",
+      "col": 4,
+      "width": 152,
+      "type": "security",
+      "label": "Gates + drift",
+      "sublabel": "tests · Graphify · Archify"
+    },
+    {
+      "id": "releasecommit",
+      "lane": "release",
+      "col": 5,
+      "width": 148,
+      "type": "cloud",
+      "label": "Review + main + tag",
+      "sublabel": "lab2-v1.0.0"
+    },
+    {
+      "id": "fixbranch",
+      "lane": "agents",
+      "col": 4,
+      "width": 148,
+      "type": "backend",
+      "label": "Fix on agent branch",
+      "sublabel": "commit and re-integrate"
+    }
+  ],
+  "edges": [
+    { "from": "contracts", "to": "worktrees", "label": "tagged baseline", "variant": "security" },
+    { "from": "worktrees", "to": "agentcommits", "label": "isolated changes" },
+    {
+      "from": "agentcommits",
+      "to": "mergedevelop",
+      "label": "reviewed commits",
+      "variant": "emphasis"
+    },
+    { "from": "mergedevelop", "to": "qualitygates", "label": "integrated tree" },
+    { "from": "qualitygates", "to": "releasecommit", "label": "all PASS", "variant": "security" },
+    {
+      "from": "qualitygates",
+      "to": "fixbranch",
+      "label": "FAIL / drift",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "from": "fixbranch",
+      "to": "mergedevelop",
+      "label": "re-integrate",
+      "variant": "dashed",
+      "role": "return"
+    }
+  ]
+}

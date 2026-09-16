@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Follow / unfollow — consistencia del timeline",
+    "viewBox": [1080, 650],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    { "id": "client", "type": "external", "label": "Client", "sublabel": "HTTP" },
+    {
+      "id": "userservice",
+      "type": "backend",
+      "label": "UserService",
+      "sublabel": "follow lifecycle"
+    },
+    { "id": "database", "type": "security", "label": "Database", "sublabel": "routine allowlist" },
+    { "id": "postgres", "type": "database", "label": "pkg_users", "sublabel": "follow / unfollow" },
+    { "id": "rabbit", "type": "messagebus", "label": "RabbitMQ", "sublabel": "newsfeed.events" },
+    {
+      "id": "workers",
+      "type": "backend",
+      "label": "Cleanup / Rebuild",
+      "sublabel": "async consumers"
+    },
+    { "id": "redis", "type": "database", "label": "Redis", "sublabel": "timeline:{userId}" }
+  ],
+  "segments": [
+    { "from": 150, "to": 294, "label": "Cambio transaccional" },
+    { "from": 308, "to": 443, "label": "Propagación asíncrona" },
+    { "from": 456, "to": 579, "label": "Efecto materializado" }
+  ],
+  "messages": [
+    {
+      "from": "client",
+      "to": "userservice",
+      "y": 176,
+      "label": "follow(followerId, followedId)",
+      "variant": "emphasis"
+    },
+    {
+      "from": "userservice",
+      "to": "database",
+      "y": 208,
+      "label": "callProcedure(pkg_users.follow_user)"
+    },
+    {
+      "from": "database",
+      "to": "postgres",
+      "y": 239,
+      "label": "validate self + duplicate",
+      "variant": "security"
+    },
+    {
+      "from": "postgres",
+      "to": "database",
+      "y": 271,
+      "label": "follow + user.followed committed",
+      "variant": "emphasis"
+    },
+    {
+      "from": "userservice",
+      "to": "client",
+      "y": 302,
+      "label": "success / domain error",
+      "variant": "return"
+    },
+    {
+      "from": "rabbit",
+      "to": "workers",
+      "y": 334,
+      "label": "user.followed → feed.rebuild",
+      "variant": "emphasis"
+    },
+    {
+      "from": "workers",
+      "to": "redis",
+      "y": 365,
+      "label": "rebuild timeline",
+      "variant": "emphasis"
+    },
+    {
+      "from": "client",
+      "to": "userservice",
+      "y": 397,
+      "label": "unfollow(followerId, followedId)"
+    },
+    {
+      "from": "userservice",
+      "to": "database",
+      "y": 429,
+      "label": "callProcedure(pkg_users.unfollow_user)"
+    },
+    {
+      "from": "database",
+      "to": "postgres",
+      "y": 460,
+      "label": "delete relation + user.unfollowed outbox",
+      "variant": "security"
+    },
+    {
+      "from": "rabbit",
+      "to": "workers",
+      "y": 492,
+      "label": "user.unfollowed → feed.cleanup",
+      "variant": "emphasis"
+    },
+    { "from": "workers", "to": "redis", "y": 523, "label": "remove followed author posts" },
+    {
+      "from": "workers",
+      "to": "rabbit",
+      "y": 554,
+      "label": "ACK after success",
+      "variant": "return"
+    }
+  ]
+}
