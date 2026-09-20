@@ -5,11 +5,11 @@
 | Campo                    | Valor                                                                       |
 | ------------------------ | --------------------------------------------------------------------------- |
 | Rama                     | `develop`                                                                   |
-| Commit base del análisis | `7bab18d`                                                                   |
+| Commit base del análisis | `56a49b2`                                                                   |
 | Graphify                 | `0.9.56`                                                                    |
-| Corpus                   | 104 archivos, ~26,416 palabras                                              |
-| Grafo                    | 705 nodos, 1,555 relaciones, 31 comunidades                                 |
-| Incremento desde Wave 0  | 568 nodos y 1,407 relaciones                                                |
+| Corpus                   | 105 archivos, ~27,124 palabras                                              |
+| Grafo                    | 710 nodos, 1,559 relaciones, 46 comunidades                                 |
+| Incremento desde Wave 0  | 573 nodos y 1,411 relaciones                                                |
 | Salud                    | 0 endpoints faltantes, 0 dangling edges, 0 self-loops, 0 colapsos dirigidos |
 
 Los artefactos reproducibles están en `graphify-out/graph.json`,
