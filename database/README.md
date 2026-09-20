@@ -11,13 +11,14 @@ administrator connection (the initial `newsfeed_owner` created by the official
 Postgres image is also supported while it is still a bootstrap superuser):
 
 ```sh
-DATABASE_ADMIN_URL=postgres://postgres:postgres@localhost:5432/newsfeed \
+DATABASE_ADMIN_URL='postgres://ADMIN_USER:ADMIN_PASSWORD@localhost:5432/newsfeed' \
+NEWSFEED_OWNER_PASSWORD='LOCAL_OWNER_PASSWORD' \
+NEWSFEED_APP_PASSWORD='LOCAL_APP_PASSWORD' \
   ./database/scripts/migrate.sh
 ```
 
-`001_roles.sql` creates and then restricts both login roles. Its checked-in
-passwords are development defaults and must be rotated by deployment tooling in
-non-lab environments. Subsequent migrations switch to `newsfeed_owner`, so all
+`001_roles.sql` creates and then restricts both login roles. Passwords are supplied
+at migration time and are never stored in the SQL source. Subsequent migrations switch to `newsfeed_owner`, so all
 tables, indexes, schemas, functions, and procedures have the intended owner.
 
 ## Package API

@@ -6,9 +6,9 @@
   "status": "pass",
   "visualReview": "pending",
   "artifact": {
-    "path": "/Users/davidgarcia/Library/Mobile Documents/com~apple~CloudDocs/gitHubProjects/newsfeed-docs/docs/architecture/system-architecture.html",
-    "sha256": "af69613b1edbe85c751007c59c435c499cab1bf35e107109fd84ae7f256301e3",
-    "bytes": 811368
+    "path": "system-architecture.html",
+    "sha256": "c2f4434b619ec0e52a8a0870c45843a9018e58822d3a75038a95567cdce6162b",
+    "bytes": 811324
   },
   "state": {
     "detail": "read",
@@ -16,7 +16,7 @@
   },
   "chrome": {
     "status": "available",
-    "executable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    "executable": "Google Chrome"
   },
   "diagnostics": [],
   "containment": {

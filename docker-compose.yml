@@ -1,8 +1,8 @@
 x-app-environment: &app-environment
   NODE_ENV: production
-  DATABASE_URL: postgres://newsfeed_app:newsfeed_app@postgres:5432/newsfeed
+  DATABASE_URL: postgres://newsfeed_app:${NEWSFEED_APP_PASSWORD:?set NEWSFEED_APP_PASSWORD}@postgres:5432/newsfeed
   REDIS_URL: redis://redis:6379
-  RABBITMQ_URL: amqp://newsfeed:newsfeed@rabbitmq:5672
+  RABBITMQ_URL: amqp://${RABBITMQ_USER:-newsfeed}:${RABBITMQ_PASSWORD:?set RABBITMQ_PASSWORD}@rabbitmq:5672
   CELEBRITY_THRESHOLD: ${CELEBRITY_THRESHOLD:-100000}
   TIMELINE_MAX_ITEMS: ${TIMELINE_MAX_ITEMS:-1000}
   OUTBOX_POLL_INTERVAL_MS: ${OUTBOX_POLL_INTERVAL_MS:-500}
@@ -33,7 +33,9 @@ services:
     environment:
       POSTGRES_DB: newsfeed
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?set POSTGRES_ADMIN_PASSWORD}
+      NEWSFEED_OWNER_PASSWORD: ${NEWSFEED_OWNER_PASSWORD:?set NEWSFEED_OWNER_PASSWORD}
+      NEWSFEED_APP_PASSWORD: ${NEWSFEED_APP_PASSWORD:?set NEWSFEED_APP_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./database:/database-init:ro
@@ -69,8 +71,8 @@ services:
     image: rabbitmq:4-management-alpine
     restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: newsfeed
-      RABBITMQ_DEFAULT_PASS: newsfeed
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-newsfeed}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?set RABBITMQ_PASSWORD}
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     ports:

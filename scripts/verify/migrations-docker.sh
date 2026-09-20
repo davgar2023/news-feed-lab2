@@ -2,6 +2,8 @@
 set -eu
 
 container="newsfeed-migrations-$$"
+owner_password="migration_owner_test_only"
+app_password="migration_app_test_only"
 cleanup() {
   docker rm -f "$container" >/dev/null 2>&1 || true
 }
@@ -28,7 +30,9 @@ for pass in 1 2; do
   for migration in database/migrations/*.sql; do
     echo "Applying $(basename "$migration")"
     docker exec --interactive "$container" psql \
-      --username postgres --dbname newsfeed --set ON_ERROR_STOP=1 <"$migration"
+      --username postgres --dbname newsfeed --set ON_ERROR_STOP=1 \
+      --set newsfeed_owner_password="$owner_password" \
+      --set newsfeed_app_password="$app_password" <"$migration"
   done
 done
 

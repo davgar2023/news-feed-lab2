@@ -51,6 +51,8 @@ jobs:
       DATABASE_URL: postgres://newsfeed_app:newsfeed_app@127.0.0.1:5432/newsfeed
       REDIS_URL: redis://127.0.0.1:6379
       RABBITMQ_URL: amqp://newsfeed:newsfeed@127.0.0.1:5672
+      NEWSFEED_OWNER_PASSWORD: newsfeed_owner
+      NEWSFEED_APP_PASSWORD: newsfeed_app
       CELEBRITY_THRESHOLD: 5
       TIMELINE_MAX_ITEMS: 1000
 

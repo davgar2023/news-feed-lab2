@@ -2,7 +2,8 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "Transactional Outbox — publicación y retry",
+    "title": "Transactional Outbox — Publication and Retry",
+    "locale": "en",
     "viewBox": [1080, 690],
     "column_fit": "spread",
     "quality_profile": "showcase"
@@ -25,9 +26,9 @@
     { "id": "rabbit", "type": "messagebus", "label": "RabbitMQ", "sublabel": "newsfeed.events" }
   ],
   "segments": [
-    { "from": 150, "to": 300, "label": "Commit atómico" },
-    { "from": 315, "to": 490, "label": "Publicación" },
-    { "from": 505, "to": 615, "label": "Resultado" }
+    { "from": 150, "to": 300, "label": "Atomic Commit" },
+    { "from": 315, "to": 490, "label": "Publication" },
+    { "from": 505, "to": 615, "label": "Result" }
   ],
   "messages": [
     {

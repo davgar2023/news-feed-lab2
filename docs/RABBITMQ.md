@@ -1,35 +1,33 @@
 # RabbitMQ
 
-## Topología
+## Topology
 
-Exchange durable `newsfeed.events` de tipo `topic`.
+| Routing key        | Queue          | Purpose                                      |
+| ------------------ | -------------- | -------------------------------------------- |
+| `post.created`     | `feed.fanout`  | Materialize normal or celebrity author posts |
+| `user.followed`    | `feed.rebuild` | Add visible history for a new follow         |
+| `user.unfollowed`  | `feed.cleanup` | Remove posts from an unfollowed author       |
+| `timeline.rebuild` | `feed.rebuild` | Rebuild a timeline from durable state        |
 
-| Routing key        | Consumidor principal | Efecto                                        |
-| ------------------ | -------------------- | --------------------------------------------- |
-| `post.created`     | `feed.fanout`        | Materializar post normal o stream celebrity   |
-| `user.followed`    | flujo rebuild        | Incorporar historia visible al nuevo follower |
-| `user.unfollowed`  | `feed.cleanup`       | Retirar posts del autor dejado de seguir      |
-| `timeline.rebuild` | `feed.rebuild`       | Recomponer timeline desde fuente durable      |
+`feed.fanout`, `feed.cleanup`, `feed.rebuild`, and `feed.dlq` are durable queues bound to the durable topic exchange `newsfeed.events`.
 
-Queues durables: `feed.fanout`, `feed.cleanup`, `feed.rebuild` y `feed.dlq`.
+## Delivery semantics
 
-## Semántica de entrega
+- Messages are persistent.
+- Publisher confirmation precedes `pkg_outbox.mark_published`.
+- Consumers use manual ACK.
+- `RABBITMQ_PREFETCH` limits in-flight work.
+- `RABBITMQ_MAX_RETRIES` bounds retries before dead-letter routing.
+- Connections and channels recover without creating divergent topology.
 
-- Mensajes persistent.
-- Publisher confirma publicación antes de `pkg_outbox.mark_published`.
-- Consumers usan ACK manual.
-- `RABBITMQ_PREFETCH` limita trabajo en vuelo.
-- `RABBITMQ_MAX_RETRIES` limita reintentos; agotarlos enruta a `feed.dlq`.
-- Conexiones y channels se recuperan sin crear topología divergente.
+## Idempotency
 
-## Idempotencia
+Before applying an effect, a consumer uses `pkg_outbox.try_process_event(eventId, consumer)` backed by `processed_events`. Redelivery is acknowledged without repeating the business effect. Redis reinforces this property by using `postId` as the sorted-set member.
 
-RabbitMQ ofrece entrega potencialmente repetida. Antes del efecto, el consumer usa `pkg_outbox.try_process_event(eventId, consumer)` o una operación equivalente respaldada por `processed_events`. Una segunda entrega se confirma sin repetir el efecto de negocio. En Redis, `postId` como miembro refuerza esa propiedad.
+## Failure handling
 
-## Manejo de fallos
+Recoverable failures carry bounded retry metadata. Poison messages end in the DLQ with diagnostic context instead of looping forever. A failure is never acknowledged as silent success. Graceful shutdown stops consumption, allows bounded in-flight completion, closes channels, and then closes the connection.
 
-Un error recuperable se reintenta con metadatos acotados. Un mensaje venenoso termina en DLQ con suficiente contexto para diagnóstico, sin bucle infinito. Nunca se ACKea un fallo como éxito silencioso. El cierre ordenado deja de consumir, espera trabajo en curso según el timeout del proceso, cierra channels y después la conexión.
+## Safe observability
 
-## Observabilidad mínima
-
-Registrar `eventId`, `eventType`, routing key, queue, retry count, outcome y duración. No registrar credenciales ni payload sensible completo. Readiness debe distinguir conexión disponible de topología utilizable.
+Log event identifiers, event type, routing key, queue, retry count, outcome, and duration. Never log credentials, tokens, or complete sensitive payloads. Readiness distinguishes a connected broker from usable topology.

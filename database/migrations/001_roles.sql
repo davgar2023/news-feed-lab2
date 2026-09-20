@@ -14,10 +14,9 @@ $bootstrap_roles$;
 ALTER ROLE newsfeed_app
   WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOINHERIT;
 
--- Local-development credentials. Production deployments should rotate these roles
--- after bootstrap and supply secrets outside source control.
-ALTER ROLE newsfeed_owner PASSWORD 'newsfeed_owner';
-ALTER ROLE newsfeed_app PASSWORD 'newsfeed_app';
+-- Passwords are injected by the migration runner and remain outside source control.
+ALTER ROLE newsfeed_owner PASSWORD :'newsfeed_owner_password';
+ALTER ROLE newsfeed_app PASSWORD :'newsfeed_app_password';
 
 DO $grant_owner_to_migrator$
 BEGIN

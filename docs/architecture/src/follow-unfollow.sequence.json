@@ -2,7 +2,8 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "Follow / unfollow — consistencia del timeline",
+    "title": "Follow / Unfollow — Timeline Consistency",
+    "locale": "en",
     "viewBox": [1080, 650],
     "column_fit": "spread",
     "quality_profile": "showcase"
@@ -27,9 +28,9 @@
     { "id": "redis", "type": "database", "label": "Redis", "sublabel": "timeline:{userId}" }
   ],
   "segments": [
-    { "from": 150, "to": 294, "label": "Cambio transaccional" },
-    { "from": 308, "to": 443, "label": "Propagación asíncrona" },
-    { "from": 456, "to": 579, "label": "Efecto materializado" }
+    { "from": 150, "to": 294, "label": "Transactional Change" },
+    { "from": 308, "to": 443, "label": "Asynchronous Propagation" },
+    { "from": 456, "to": 579, "label": "Materialized Effect" }
   ],
   "messages": [
     {

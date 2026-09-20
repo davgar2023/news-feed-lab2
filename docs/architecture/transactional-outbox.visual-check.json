@@ -6,9 +6,9 @@
   "status": "pass",
   "visualReview": "pending",
   "artifact": {
-    "path": "/Users/davidgarcia/Library/Mobile Documents/com~apple~CloudDocs/gitHubProjects/newsfeed-docs/docs/architecture/transactional-outbox.html",
-    "sha256": "cdcb89b2df295c3e982c82ab98594cbe1b47e41152389f6bf31841a92a1c8aa3",
-    "bytes": 805847
+    "path": "transactional-outbox.html",
+    "sha256": "b50fa4b0c3b12aa094e955b90a05cf1d01fc3de0fd07363966e4eb1b90da6384",
+    "bytes": 805843
   },
   "state": {
     "detail": "read",
@@ -16,7 +16,7 @@
   },
   "chrome": {
     "status": "available",
-    "executable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    "executable": "Google Chrome"
   },
   "diagnostics": [],
   "containment": {

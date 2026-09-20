@@ -2,46 +2,33 @@
 
 ![Transactional outbox](architecture/transactional-outbox.svg)
 
-## Problema
+## Why it exists
 
-Guardar el post y publicar a RabbitMQ como dos escrituras independientes permite estados imposibles: post sin evento o evento sin post. La outbox mueve ambas escrituras durables a una sola transacción PostgreSQL.
+Saving a post and publishing to RabbitMQ as independent writes allows impossible states: a post without an event or an event without a post. The outbox stores both durable records in one PostgreSQL transaction.
 
-## Escritura
+## Atomic write
 
-`pkg_posts.create_post(authorId, content)`:
+`pkg_posts.create_post`:
 
-1. inicia o participa en una transacción;
-2. inserta el post;
-3. inserta `post.created` en `outbox_events` con status pendiente;
-4. confirma ambos cambios o revierte ambos.
+1. validates the author and content;
+2. inserts the post;
+3. inserts a `post.created` event with immutable `event_id` and JSONB payload;
+4. returns the created post.
 
-Campos contratados: `event_id`, `event_type`, `aggregate_type`, `aggregate_id`, `payload JSONB`, `status`, `retry_count`, `created_at`, `published_at`, `last_error`.
+PostgreSQL commits or rolls back both records together.
 
-## Publicación
+## Publication
 
-El Outbox Publisher ejecuta en intervalo `OUTBOX_POLL_INTERVAL_MS`:
+The Outbox Publisher:
 
-1. `pkg_outbox.get_pending_events(limit)`;
-2. publicación persistent a `newsfeed.events` con routing key igual al event type;
-3. confirmación del broker;
-4. `pkg_outbox.mark_published(eventId)` tras éxito;
-5. `pkg_outbox.mark_failed(eventId, error)` tras fallo.
+1. claims a bounded pending batch through `pkg_outbox.get_pending_events`;
+2. publishes persistent messages to `newsfeed.events` with the event type as routing key;
+3. waits for broker confirmation;
+4. calls `pkg_outbox.mark_published(eventId)` on success;
+5. calls `pkg_outbox.mark_failed(eventId, error)` on failure.
 
-El publisher no consulta ni actualiza `outbox_events` directamente.
+The publisher never queries or updates `outbox_events` directly.
 
-## Concurrencia
+## Concurrency and retries
 
-La rutina de pendientes debe evitar que dos publishers reclamen el mismo lote, por ejemplo mediante locks de fila con skip locked o un mecanismo equivalente verificable. La decisión concreta pertenece a la migración integrada y debe preservarse en pruebas.
-
-## Reintento e idempotencia
-
-`retry_count` y `last_error` permiten reintentos observables. Publicar puede haber funcionado aunque se pierda la confirmación, por lo que los consumers siempre deben tolerar duplicados. `event_id` no cambia entre intentos.
-
-## Pruebas esenciales
-
-- rollback no deja ni post ni evento;
-- commit deja ambos;
-- evento pendiente se publica y marca;
-- fallo incrementa retry y conserva error;
-- publisher duplicado no produce efecto de negocio duplicado;
-- runtime accede exclusivamente por `pkg_outbox`.
+Pending-event claims prevent two publishers from processing the same batch concurrently. `retry_count` and `last_error` provide observable bounded retries. A publish may succeed even if confirmation is lost, so consumers always tolerate duplicate delivery and keep the same `event_id` across attempts.

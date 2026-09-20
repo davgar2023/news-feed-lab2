@@ -6,9 +6,9 @@
   "status": "pass",
   "visualReview": "pending",
   "artifact": {
-    "path": "/Users/davidgarcia/Library/Mobile Documents/com~apple~CloudDocs/gitHubProjects/newsfeed-docs/docs/architecture/multi-agent-git.html",
-    "sha256": "7157533b0c2c30bb44010b04b7aff638134ab1789e30b1dd415db707e6ca1f80",
-    "bytes": 805770
+    "path": "multi-agent-git.html",
+    "sha256": "18780c6bc57e0b027622687832b26bbf96b48637f98bd5be2861ff39a7d9fe8e",
+    "bytes": 805775
   },
   "state": {
     "detail": "read",
@@ -16,7 +16,7 @@
   },
   "chrome": {
     "status": "available",
-    "executable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    "executable": "Google Chrome"
   },
   "diagnostics": [],
   "containment": {

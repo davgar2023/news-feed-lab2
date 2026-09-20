@@ -1,30 +1,30 @@
-# Arquitectura
+# Architecture
 
-## Vista del sistema
+## System view
 
-![Arquitectura](architecture/system-architecture.svg)
+![Architecture](architecture/system-architecture.svg)
 
-El proceso HTTP y los workers comparten contratos, infraestructura y acceso encapsulado a PostgreSQL, pero se ejecutan como procesos independientes. Esto no constituye microservicios: no hay propiedad de datos separada ni APIs remotas entre módulos.
+The HTTP process and workers share contracts, infrastructure, and encapsulated PostgreSQL access while running as independent processes. This remains a modular monolith: modules do not own separate databases and do not communicate through remote service APIs.
 
-## Capas síncronas
+## Synchronous layers
 
 ```text
 Client → Nginx → Controller → Service → Repository → Database → pkg_* → PostgreSQL
 ```
 
-- `Controller`: HTTP, validación de entrada y códigos de respuesta.
-- `Service`: reglas y orquestación de caso de uso.
-- `Repository`: adapta contratos de dominio a infraestructura.
-- `Database`: único `pg.Pool`, allowlist de rutinas, transacciones, health y cierre.
-- `pkg_*`: API pública de PostgreSQL; tablas quedan privadas para `newsfeed_app`.
+- `Controller`: HTTP transport, input validation, and response codes.
+- `Service`: business rules and use-case orchestration.
+- `Repository`: adaptation between domain contracts and infrastructure.
+- `Database`: the only `pg.Pool`, routine allowlist, transactions, health checks, and shutdown.
+- `pkg_*`: the public PostgreSQL API; tables remain private to `newsfeed_app`.
 
-## Camino de creación
+## Post creation path
 
-![Creación de post](architecture/post-created-flow.svg)
+![Post creation](architecture/post-created-flow.svg)
 
-`POST /api/posts` termina cuando PostgreSQL confirma post y evento outbox. La propagación a followers es posterior. Esta separación evita que la latencia o caída de RabbitMQ invalide una escritura ya durable.
+`POST /api/posts` completes when PostgreSQL commits both the post and its outbox event. Follower propagation happens afterward, so RabbitMQ latency or downtime cannot invalidate an already durable post.
 
-## Camino asíncrono
+## Asynchronous path
 
 ```text
 outbox_events
@@ -35,33 +35,25 @@ outbox_events
   → timeline:{userId} | author_posts:{userId}
 ```
 
-La cola `feed.dlq` concentra entregas que agotaron `RABBITMQ_MAX_RETRIES`. Los consumers usan prefetch, ACK manual, recuperación de conexión e idempotencia.
+Messages that exhaust `RABBITMQ_MAX_RETRIES` are routed to `feed.dlq`. Consumers use prefetch, manual acknowledgements, connection recovery, and idempotent effects.
 
-## Topología contractual
+## Runtime topology
 
-| Elemento               | Identificador                                                          |
+| Element                | Identifier                                                             |
 | ---------------------- | ---------------------------------------------------------------------- |
-| Exchange topic durable | `newsfeed.events`                                                      |
-| Fanout queue           | `feed.fanout`                                                          |
+| Durable topic exchange | `newsfeed.events`                                                      |
+| Fan-out queue          | `feed.fanout`                                                          |
 | Cleanup queue          | `feed.cleanup`                                                         |
 | Rebuild queue          | `feed.rebuild`                                                         |
 | Dead-letter queue      | `feed.dlq`                                                             |
 | Routing keys           | `post.created`, `user.followed`, `user.unfollowed`, `timeline.rebuild` |
 | Timeline               | `timeline:{userId}`                                                    |
-| Stream de autor        | `author_posts:{userId}`                                                |
+| Author stream          | `author_posts:{userId}`                                                |
 
-## Disponibilidad y cierre
+## Availability and shutdown
 
-`GET /health` comunica estado del proceso. `GET /health/ready` evalúa PostgreSQL, Redis y RabbitMQ requeridos para operación normal. Ante `SIGTERM` o `SIGINT` el orden contratado es: dejar de aceptar HTTP, detener consumers/channels, cerrar conexión RabbitMQ, cerrar Redis y cerrar `pg.Pool`.
+`GET /health` reports process liveness. `GET /health/ready` checks PostgreSQL, Redis, and RabbitMQ. On `SIGTERM` or `SIGINT`, the process stops accepting HTTP traffic, stops consumers and channels, closes RabbitMQ, closes Redis, and finally closes `pg.Pool`.
 
-## Estado verificable
+## Verification
 
-En la revisión de `contracts-v1` existen:
-
-- contratos de repositorio para users, posts y outbox;
-- tipos `User`, `Post`, `TimelinePage` y `DomainEvent`;
-- nombres de rutinas aprobadas;
-- topología RabbitMQ y constructores de claves Redis;
-- schema Zod de entorno.
-
-Los controllers, services, repositories concretos, workers, migraciones y Docker no están en esta rama base. El Integration Agent debe actualizar la evidencia después de los merges sin alterar nombres contratados de forma silenciosa.
+The implementation contains concrete controllers, services, repositories, workers, migrations, Docker infrastructure, health checks, shutdown handling, tests, and generated architecture evidence. Graphify and the database-policy scanner verify that the documented boundaries match the integrated code.

@@ -6,9 +6,9 @@
   "status": "pass",
   "visualReview": "pending",
   "artifact": {
-    "path": "/Users/davidgarcia/Library/Mobile Documents/com~apple~CloudDocs/gitHubProjects/newsfeed-docs/docs/architecture/fanout-write.html",
-    "sha256": "8c4dcd88499486c9553132a4c89cb81fe11151a73548081b42c6525e3114f16a",
-    "bytes": 805989
+    "path": "fanout-write.html",
+    "sha256": "496bf804c27238e277832b5798648b4167bd7266a3a742e7b714ba201bd62851",
+    "bytes": 805992
   },
   "state": {
     "detail": "read",
@@ -16,7 +16,7 @@
   },
   "chrome": {
     "status": "available",
-    "executable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    "executable": "Google Chrome"
   },
   "diagnostics": [],
   "containment": {

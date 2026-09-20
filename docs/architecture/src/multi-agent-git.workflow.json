@@ -2,13 +2,14 @@
   "schema_version": 2,
   "diagram_type": "workflow",
   "meta": {
-    "title": "Git multiagente — ramas, worktrees e integración",
+    "title": "Multi-Agent Git — Branches, Worktrees, and Integration",
+    "locale": "en",
     "viewBox": [1120, 660],
     "quality_profile": "showcase"
   },
   "lanes": [
     { "id": "architect", "label": "Lead Architect" },
-    { "id": "agents", "label": "Agentes Wave 1" },
+    { "id": "agents", "label": "Wave 1 Agents" },
     { "id": "integration", "label": "Integration Agent" },
     { "id": "release", "label": "Final Review" }
   ],

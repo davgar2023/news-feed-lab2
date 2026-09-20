@@ -6,9 +6,9 @@
   "status": "pass",
   "visualReview": "pending",
   "artifact": {
-    "path": "/Users/davidgarcia/Library/Mobile Documents/com~apple~CloudDocs/gitHubProjects/newsfeed-docs/docs/architecture/follow-unfollow.html",
-    "sha256": "891b7e610d65c09bc93fabf6709bccef04c9c2c6eecf292cab2f33c30618e9a0",
-    "bytes": 809614
+    "path": "follow-unfollow.html",
+    "sha256": "273bbde4498fad6bf2ee4994bce59bfa9896d17f6e9279f967bae3e285b15848",
+    "bytes": 809601
   },
   "state": {
     "detail": "read",
@@ -16,7 +16,7 @@
   },
   "chrome": {
     "status": "available",
-    "executable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    "executable": "Google Chrome"
   },
   "diagnostics": [],
   "containment": {

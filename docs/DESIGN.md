@@ -1,63 +1,55 @@
-# Diseño
+# Design
 
-## Alcance y estado
+## Scope
 
-El sistema se diseña como monolito modular con tres módulos de negocio (`users`, `posts`, `feed`) y cuatro procesos independientes (`outbox`, `fanout`, `cleanup`, `rebuild`). En `contracts-v1` están implementados los contratos TypeScript; los cuerpos de módulos, infraestructura y SQL se incorporan por ramas separadas y deben verificarse en el árbol integrado.
+The system is a modular monolith with three business modules (`users`, `posts`, and `feed`) plus four independent worker processes (`outbox`, `fanout`, `cleanup`, and `rebuild`). Shared contracts define database routines, event types, RabbitMQ topology, Redis keys, and repository interfaces.
 
-## Decisiones
+## Decisions
 
-### PostgreSQL como fuente de verdad
+### PostgreSQL as the source of truth
 
-Usuarios, posts, follows y estado de eventos viven en PostgreSQL. Redis se trata como una proyección descartable. Esto hace posible recuperar timelines sin convertir el caché en autoridad sobre visibilidad o relaciones.
+Users, posts, follows, and event state live in PostgreSQL. Redis is a disposable read projection, so timelines can be recovered without making the cache authoritative for visibility or relationships.
 
-### API de base de datos por paquetes
+### Package-style database API
 
-PostgreSQL no tiene `PACKAGE`, así que los límites se representan con schemas:
+PostgreSQL has no Oracle-style `PACKAGE`, so schemas provide package boundaries: `pkg_users`, `pkg_posts`, `pkg_feed`, `pkg_outbox`, and `pkg_lab_seed`. `Database.callFunction` and `Database.callProcedure` are the only runtime execution points and enforce `DATABASE_ROUTINES` and `APPROVED_DATABASE_SCHEMAS`.
 
-- `pkg_users`
-- `pkg_posts`
-- `pkg_feed`
-- `pkg_outbox`
-- `pkg_lab_seed`
+### Transactional outbox
 
-`Database.callFunction` y `Database.callProcedure` forman el único punto de ejecución desde runtime. La allowlist contractual está en `DATABASE_ROUTINES` y `APPROVED_DATABASE_SCHEMAS`.
+`pkg_posts.create_post` writes `posts` and `outbox_events` in one transaction. RabbitMQ does not participate in that commit. The publisher later claims pending events through `pkg_outbox`, publishes them, and records success or failure.
 
-### Outbox transaccional
+### Hybrid feed
 
-`pkg_posts.create_post` debe escribir `posts` y `outbox_events` dentro de la misma transacción. RabbitMQ no participa en ese commit. Un publisher posterior obtiene eventos pendientes mediante `pkg_outbox.get_pending_events`, publica y confirma el resultado con `mark_published` o `mark_failed`.
+Mass fan-out is efficient for regular authors. Authors at or above `CELEBRITY_THRESHOLD` store posts in `author_posts:{userId}`. On reads, `FeedService` combines regular timeline entries with followed celebrity streams, deduplicates, sorts by descending timestamp, and applies stable cursor pagination.
 
-### Feed híbrido
+### At-least-once delivery
 
-La escritura masiva sólo es eficiente para autores normales. Un autor cuyo conteo alcanza `CELEBRITY_THRESHOLD` conserva sus posts en `author_posts:{userId}`. Al leer, `FeedService` combina la timeline normal con streams celebrity, deduplica, ordena por timestamp descendente y aplica límite/paginación.
+RabbitMQ may redeliver messages. `processed_events` and `pkg_outbox.try_process_event` make consumer effects idempotent. Using `postId` as the Redis sorted-set member also makes repeated `ZADD` operations safe.
 
-### Entrega al menos una vez
+### Follow and unfollow consistency
 
-RabbitMQ puede repetir mensajes. `processed_events` y `pkg_outbox.try_process_event` establecen idempotencia de consumidores; usar `postId` como miembro ZSET vuelve repetible `ZADD` sin duplicar entradas.
+PostgreSQL commits the relationship before projection. `user.followed` triggers rebuild, while `user.unfollowed` triggers cleanup. Feed reads validate visibility so stale projections cannot expose posts from an author who is no longer followed.
 
-### Consistencia de follow/unfollow
+## Invariants
 
-La relación se confirma en PostgreSQL antes de proyectarse. `user.followed` inicia rebuild; `user.unfollowed` inicia cleanup. La lectura final debe validar visibilidad para que una proyección atrasada no exponga posts de un autor ya no seguido.
-
-## Invariantes
-
-1. Un controller no conoce `pg`, `ioredis` ni `amqplib`.
-2. Un service no crea pools ni compone SQL de negocio.
-3. Un repository SQL sólo invoca rutinas a través de `Database`.
-4. Sólo `src/infrastructure/database/Database.ts` instancia `pg.Pool`.
-5. Un ACK RabbitMQ ocurre después de un efecto idempotente exitoso.
-6. La pérdida de Redis degrada rendimiento o disponibilidad del feed, nunca la verdad durable.
-7. La creación de post nunca publica directamente desde HTTP.
+1. Controllers never import `pg`, `ioredis`, or `amqplib`.
+2. Services never create pools or compose business SQL.
+3. SQL repositories invoke only approved routines through `Database`.
+4. Only `src/infrastructure/database/Database.ts` creates `pg.Pool`.
+5. RabbitMQ ACK happens only after a successful idempotent effect.
+6. Redis loss may reduce feed availability or performance, never durable truth.
+7. Post creation never publishes directly from HTTP.
 
 ## Trade-offs
 
-| Decisión          | Beneficio                                    | Coste controlado                                  |
-| ----------------- | -------------------------------------------- | ------------------------------------------------- |
-| Routines-only     | Menor superficie SQL y permisos verificables | Más migraciones y versionado de APIs SQL          |
-| Fan-out híbrido   | Escrituras acotadas para celebrities         | Lectura y paginación más complejas                |
-| Outbox            | Evita dual write post/broker                 | Consistencia eventual y publisher adicional       |
-| Monolito modular  | Transacciones y despliegue simples           | Disciplina estricta de dependencias internas      |
-| Workers separados | Escalado asíncrono independiente             | Shutdown, reconexión y observabilidad por proceso |
+| Decision             | Benefit                                       | Controlled cost                                    |
+| -------------------- | --------------------------------------------- | -------------------------------------------------- |
+| Routines-only access | Small SQL surface and enforceable permissions | More migrations and SQL API versioning             |
+| Hybrid fan-out       | Bounded writes for celebrity accounts         | More complex reads and pagination                  |
+| Transactional outbox | Eliminates post/broker dual-write loss        | Eventual consistency and another publisher process |
+| Modular monolith     | Simple transactions and deployment            | Strict internal dependency discipline              |
+| Independent workers  | Independent asynchronous scaling              | Per-process recovery, observability, and shutdown  |
 
-## Criterio de deriva
+## Drift criterion
 
-Los diagramas representan contratos, no prueban la implementación. El gate final compara nombres y caminos contra Graphify y el código integrado: módulos, workers, queues, routing keys, Redis keys y schemas documentados deben existir con los mismos identificadores.
+The final gate compares diagrams, Graphify output, and integrated code. Every documented module, worker, queue, routing key, Redis key, and package schema must exist with the same identifier.

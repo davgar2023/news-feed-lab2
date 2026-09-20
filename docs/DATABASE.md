@@ -1,65 +1,49 @@
 # PostgreSQL
 
-## Roles y permisos
+## Roles and permissions
 
-`newsfeed_owner` posee tablas, índices, schemas y rutinas. `newsfeed_app` es el rol del runtime y recibe `USAGE`/`EXECUTE` únicamente sobre schemas aprobados. Debe carecer de `SELECT`, `INSERT`, `UPDATE`, `DELETE` y `TRUNCATE` directos sobre tablas de negocio.
+`newsfeed_owner` owns tables, indexes, schemas, and routines. `newsfeed_app` is the runtime role and receives only `USAGE` and `EXECUTE` on approved package schemas. It has no direct `SELECT`, `INSERT`, `UPDATE`, `DELETE`, or `TRUNCATE` permission on business tables.
 
-Las pruebas de permisos deben demostrar simultáneamente:
+Integration tests prove both sides of the boundary:
 
-1. `SELECT` directo de `users` como `newsfeed_app` falla.
-2. `pkg_users.get_user(...)` como `newsfeed_app` funciona.
+1. A direct `SELECT` from `users` as `newsfeed_app` fails.
+2. Executing `pkg_users.get_user(...)` as `newsfeed_app` succeeds.
 
-## Modelo 3NF contratado
+## 3NF model
 
-| Tabla              | Responsabilidad           | Restricciones principales                                       |
-| ------------------ | ------------------------- | --------------------------------------------------------------- |
-| `users`            | Identidad local           | PK, username UNIQUE, timestamps                                 |
-| `posts`            | Contenido por autor       | PK, FK author, contenido no vacío, timestamps                   |
-| `follows`          | Relación dirigida         | FK doble, UNIQUE follower/followed, rechazo de self-follow      |
-| `outbox_events`    | Eventos por publicar      | PK event_id, tipo, aggregate, JSONB, status, retry y timestamps |
-| `processed_events` | Idempotencia por consumer | identidad de evento + consumer única                            |
+| Table              | Responsibility              | Main constraints                                                       |
+| ------------------ | --------------------------- | ---------------------------------------------------------------------- |
+| `users`            | Local identity              | Primary key, unique username, timestamps                               |
+| `posts`            | Author content              | Primary key, author foreign key, non-empty content, timestamps         |
+| `follows`          | Directed relationship       | Two foreign keys, unique follower/followed pair, no self-follow        |
+| `outbox_events`    | Events awaiting publication | Event key, type, aggregate, JSONB payload, status, retries, timestamps |
+| `processed_events` | Consumer idempotency        | Unique event and consumer identity                                     |
 
-Índices requeridos: username; posts por `(author_id, created_at)`; follows por follower y followed; outbox pendiente; processed event lookup.
+Indexes support username lookup, posts by author/date, both follow directions, pending outbox events, and processed-event lookup.
 
-## API pública
+## Public package API
 
-### `pkg_users`
-
-`create_user`, `get_user`, `follow_user`, `unfollow_user`, `get_followers`, `get_following`, `count_followers`, `is_following`, `get_celebrity_following`.
-
-### `pkg_posts`
-
-`create_post`, `get_post`, `get_user_posts`, `get_recent_posts`, `delete_post`.
-
-### `pkg_feed`
-
-`validate_feed_items`.
-
-### `pkg_outbox`
-
-`get_pending_events`, `mark_published`, `mark_failed`, `try_process_event`.
-
-### `pkg_lab_seed`
-
-`generate_mock_data`.
+- `pkg_users`: `create_user`, `get_user`, `follow_user`, `unfollow_user`, `get_followers`, `get_following`, `count_followers`, `is_following`, `get_celebrity_following`.
+- `pkg_posts`: `create_post`, `get_post`, `get_user_posts`, `get_recent_posts`, `delete_post`.
+- `pkg_feed`: `validate_feed_items`.
+- `pkg_outbox`: `get_pending_events`, `mark_published`, `mark_failed`, `try_process_event`.
+- `pkg_lab_seed`: `generate_mock_data`.
 
 ## `SECURITY DEFINER`
 
-Una rutina que eleva privilegios debe fijar un `search_path` seguro y referenciar objetos sensibles con schema explícito. No debe resolver objetos usando el `search_path` controlado por el caller. Los grants se aplican a rutinas concretas o al schema aprobado, nunca a tablas subyacentes.
+Privileged routines pin a safe `search_path` and fully qualify sensitive objects. They never resolve objects through a caller-controlled path. Grants apply to approved routines and schemas, not their underlying tables.
 
-## Abstracción `Database`
+## `Database` abstraction
 
-Responsabilidades contratadas:
+- `initializePool()` and `getPool()` manage one pool per process.
+- `withClient()` bounds client checkout and release.
+- `callFunction()` and `callProcedure()` enforce the routine allowlist.
+- `transaction()` controls begin, commit, and rollback.
+- `healthCheck()` supports readiness.
+- `closePool()` supports graceful shutdown.
 
-- `initializePool()` y `getPool()` gestionan un solo pool por proceso.
-- `withClient()` acota checkout/release.
-- `callFunction()` y `callProcedure()` validan contra la allowlist.
-- `transaction()` controla begin/commit/rollback.
-- `healthCheck()` alimenta readiness.
-- `closePool()` permite graceful shutdown.
+Repositories do not store arbitrary SQL. The only generated SQL is the parameterized routine invocation built centrally by `Database`.
 
-Un repository no guarda SQL arbitrario. La única composición permitida es la invocación parametrizada que `Database` genera para una rutina aprobada.
+## Automated enforcement
 
-## Verificación automática
-
-`npm run verify:database-policy` escanea TypeScript de runtime y falla ante DML directo sobre tablas de negocio o ante instancias de `new Pool()` fuera de infraestructura. Las migraciones SQL son código de owner y no se confunden con runtime.
+`npm run verify:database-policy` scans runtime TypeScript and fails on direct business-table DML or `new Pool()` outside the database infrastructure. Migration SQL runs under the owner boundary and is intentionally excluded from runtime scanning.

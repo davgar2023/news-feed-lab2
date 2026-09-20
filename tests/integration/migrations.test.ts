@@ -25,7 +25,10 @@ describe(`ordered database migrations${suiteReason}`, () => {
       for (let pass = 0; pass < 2; pass += 1) {
         for (const migration of migrations) {
           const sql = await readFile(path.join(migrationsDirectory, migration), "utf8");
-          await pool.query(sql);
+          const testSql = sql
+            .replaceAll(":'newsfeed_owner_password'", "'newsfeed_owner'")
+            .replaceAll(":'newsfeed_app_password'", "'newsfeed_app'");
+          await pool.query(testSql);
         }
       }
     } finally {

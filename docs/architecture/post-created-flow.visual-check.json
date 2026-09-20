@@ -6,9 +6,9 @@
   "status": "pass",
   "visualReview": "pending",
   "artifact": {
-    "path": "/Users/davidgarcia/Library/Mobile Documents/com~apple~CloudDocs/gitHubProjects/newsfeed-docs/docs/architecture/post-created-flow.html",
-    "sha256": "2a5dd9cecff79232e79d6eb9c21a5213196d92d6fc763d80bf2286810d87bb1b",
-    "bytes": 805573
+    "path": "post-created-flow.html",
+    "sha256": "cf6a63295cf7cfa40fce1168be48597c32d74f563b65d17e03b6eff6188e3c2e",
+    "bytes": 805531
   },
   "state": {
     "detail": "read",
@@ -16,7 +16,7 @@
   },
   "chrome": {
     "status": "available",
-    "executable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    "executable": "Google Chrome"
   },
   "diagnostics": [],
   "containment": {

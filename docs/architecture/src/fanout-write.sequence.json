@@ -2,7 +2,8 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "Fan-out on write — cuenta normal",
+    "title": "Fan-out on Write — Regular Account",
+    "locale": "en",
     "viewBox": [1080, 650],
     "column_fit": "spread",
     "quality_profile": "showcase"
@@ -21,9 +22,9 @@
     { "id": "redis", "type": "database", "label": "Redis", "sublabel": "timeline:{userId}" }
   ],
   "segments": [
-    { "from": 150, "to": 300, "label": "Publicación" },
-    { "from": 315, "to": 445, "label": "Expansión" },
-    { "from": 460, "to": 580, "label": "Materialización" }
+    { "from": 150, "to": 300, "label": "Publication" },
+    { "from": 315, "to": 445, "label": "Expansion" },
+    { "from": 460, "to": 580, "label": "Materialization" }
   ],
   "messages": [
     { "from": "publisher", "to": "postgres", "y": 180, "label": "pkg_outbox.get_pending_events" },

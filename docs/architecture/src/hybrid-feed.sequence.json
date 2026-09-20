@@ -2,7 +2,8 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "Feed híbrido — fan-out on read",
+    "title": "Hybrid Feed — Fan-out on Read",
+    "locale": "en",
     "viewBox": [1080, 690],
     "column_fit": "spread",
     "quality_profile": "showcase"
@@ -22,9 +23,9 @@
     }
   ],
   "segments": [
-    { "from": 150, "to": 300, "label": "Timeline precomputado" },
-    { "from": 315, "to": 475, "label": "Streams celebrity" },
-    { "from": 490, "to": 615, "label": "Merge y página" }
+    { "from": 150, "to": 300, "label": "Precomputed Timeline" },
+    { "from": 315, "to": 475, "label": "Celebrity Streams" },
+    { "from": 490, "to": 615, "label": "Merge and Page" }
   ],
   "messages": [
     {

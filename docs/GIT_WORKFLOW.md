@@ -1,17 +1,17 @@
-# Workflow Git
+# Git Workflow
 
-![Workflow Git multiagente](architecture/multi-agent-git.svg)
+![Multi-agent Git workflow](architecture/multi-agent-git.svg)
 
-## Ramas
+## Branches
 
-- `main`: estado releaseable; recibe `develop` sólo después de todos los gates.
-- `develop`: rama de integración.
-- `agent/contracts`, `agent/database`, `agent/infrastructure`, `agent/users`, `agent/posts`, `agent/feed`, `agent/workers`, `agent/tests`, `agent/docs`: propiedad por dominio.
-- `agent/integration-1` y `agent/final-review`: correcciones de integración y revisión final.
+- `main`: releasable state; receives `develop` only after every gate passes.
+- `develop`: integration branch.
+- `agent/*`: domain-owned implementation branches.
+- `agent/integration-1` and `agent/final-review`: integration repair and final review.
 
 ## Worktrees
 
-Cada agente trabaja en un directorio distinto asociado a su branch. Ejemplo:
+Each agent works in a different directory attached to its branch:
 
 ```bash
 git worktree add ../newsfeed-database agent/database
@@ -24,11 +24,11 @@ git worktree add ../newsfeed-tests agent/tests
 git worktree add ../newsfeed-docs agent/docs
 ```
 
-Antes de crear, `git worktree list` confirma que el branch no está activo en otro worktree.
+Run `git worktree list` before creating a worktree to confirm the branch is not already checked out elsewhere.
 
 ## Commits
 
-Use Conventional Commits y alcance explícito:
+Use scoped Conventional Commits:
 
 ```text
 feat(database): add package-only routines
@@ -37,24 +37,12 @@ test(security): deny runtime table access
 docs(architecture): add verified system diagrams
 ```
 
-Cada commit debe ser cohesivo, revisable y dejar sus artefactos internos consistentes. No se mezclan cambios ajenos sólo para limpiar el status.
+Each commit should be cohesive, reviewable, and internally consistent. Do not mix unrelated changes merely to clean the working tree.
 
-## Integración
+## Integration
 
-Orden recomendado por dependencias:
-
-1. contracts
-2. database
-3. infrastructure
-4. users
-5. posts
-6. feed
-7. workers
-8. tests
-9. docs
-
-Después de cada grupo de merges: instalar dependencias bloqueadas, ejecutar gates, actualizar Graphify y resolver conflictos según intención. Una resolución no elimina funcionalidad para producir un merge vacío.
+Recommended dependency order: contracts, database, infrastructure, users, posts, feed, workers, tests, then docs. After each merge group, install locked dependencies, run gates, update Graphify, and resolve conflicts according to intent without deleting functionality.
 
 ## Release
 
-Cuando `FINAL_VALIDATION.md` registra todos los checks en PASS, `develop` se integra en `main` y se crea el tag `lab2-v1.0.0`. `git status --short` debe estar vacío antes del merge y del tag.
+When `FINAL_VALIDATION.md` records every check as PASS, merge `develop` into `main` and tag `lab2-v1.0.0`. The working tree must be clean before both operations.

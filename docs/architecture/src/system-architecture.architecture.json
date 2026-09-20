@@ -2,7 +2,8 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "News Feed — arquitectura contratada",
+    "title": "News Feed — Verified Architecture",
+    "locale": "en",
     "viewBox": [1180, 560],
     "quality_profile": "showcase"
   },
@@ -107,7 +108,7 @@
   "boundaries": [
     {
       "kind": "region",
-      "label": "Aplicación: monolito modular + procesos worker independientes",
+      "label": "Application: modular monolith + independent worker processes",
       "wraps": ["node", "modules", "database", "publisher", "workers"]
     }
   ],

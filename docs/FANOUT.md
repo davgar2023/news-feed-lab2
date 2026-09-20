@@ -4,41 +4,39 @@
 
 ![Fan-out on write](architecture/fanout-write.svg)
 
-Para una cuenta normal, `post.created` llega a `feed.fanout`. El worker obtiene followers mediante `pkg_users.get_followers(authorId)`, no desde `follows`, y usa pipeline Redis para `ZADD timeline:{followerId}` con score timestamp y member `postId`. Después recorta a `TIMELINE_MAX_ITEMS`.
+For a regular account, `post.created` reaches `feed.fanout`. The worker obtains followers through `pkg_users.get_followers(authorId)`, never from the `follows` table, and pipelines `ZADD timeline:{followerId}` with the post timestamp as score and `postId` as member. It then trims each timeline to `TIMELINE_MAX_ITEMS`.
 
-Ventaja: lectura rápida. Coste: escrituras proporcionales al número de followers.
+Benefit: fast reads. Cost: writes scale with the follower count.
 
 ## Fan-out on read
 
-Para una cuenta celebrity, el worker actualiza `author_posts:{celebrityId}`. No escribe el post en cada follower. `CELEBRITY_THRESHOLD` decide la estrategia a partir del conteo durable de followers.
+For a celebrity account, the worker updates `author_posts:{celebrityId}` instead of every follower timeline. `CELEBRITY_THRESHOLD` selects the strategy from the durable follower count.
 
-Ventaja: escritura acotada. Coste: la lectura debe consultar y combinar streams adicionales.
+Benefit: bounded writes. Cost: reads must merge additional streams.
 
-## Feed híbrido
+## Hybrid feed
 
-![Feed híbrido](architecture/hybrid-feed.svg)
+![Hybrid feed](architecture/hybrid-feed.svg)
 
-Algoritmo contratado:
+1. Read regular IDs from `timeline:{userId}`.
+2. Fetch followed celebrities through `pkg_users.get_celebrity_following`.
+3. Read each `author_posts:{celebrityId}` stream and recent posts through approved APIs.
+4. Hydrate and validate candidates with `pkg_feed.validate_feed_items`.
+5. Exclude deleted posts and authors no longer followed.
+6. Deduplicate by `postId`.
+7. Sort by timestamp descending with a stable tie-breaker.
+8. Apply the requested limit and return `TimelinePage.nextCursor`.
 
-1. Leer IDs normales desde `timeline:{userId}`.
-2. Obtener celebrities seguidos mediante `pkg_users.get_celebrity_following`.
-3. Leer cada `author_posts:{celebrityId}` y/o posts recientes por API `pkg_posts`.
-4. Hidratar y validar candidatos mediante `pkg_feed.validate_feed_items`.
-5. Excluir autores no seguidos y posts eliminados.
-6. Deduplicar por `postId`.
-7. Ordenar por timestamp DESC con desempate estable.
-8. Aplicar Top N y devolver `TimelinePage.nextCursor`.
+## Follow and unfollow
 
-## Follow y unfollow
+![Follow and unfollow](architecture/follow-unfollow.svg)
 
-![Follow y unfollow](architecture/follow-unfollow.svg)
+`follow_user` rejects self-follows and duplicates, then emits a rebuild event. `unfollow_user` removes the relationship and emits a cleanup event. Feed reads validate candidates against PostgreSQL while projections converge asynchronously.
 
-`follow_user` rechaza self-follow y duplicados. Su evento programa rebuild. `unfollow_user` elimina la relación y su evento programa cleanup. Como la proyección es eventual, la lectura valida elementos contra PostgreSQL para impedir que un post obsoleto sobreviva en la respuesta.
+## Edge conditions
 
-## Condiciones límite
-
-- Timeline vacía devuelve página vacía y cursor nulo.
-- Reentrega de evento no duplica `postId`.
-- Posts con igual timestamp conservan orden determinista.
-- Una falla parcial de pipeline no se confirma antes de completar/reintentar el lote.
-- Cambiar el umbral no reclasifica correctamente contenido histórico sin rebuild; la operación final debe incluir ese camino.
+- An empty timeline returns an empty page and a null cursor.
+- Event redelivery does not duplicate a `postId`.
+- Equal timestamps keep deterministic ordering.
+- Partial pipeline failure is not acknowledged before completion or retry.
+- Changing the celebrity threshold requires a rebuild to reclassify historical projections.

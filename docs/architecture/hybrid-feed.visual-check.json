@@ -6,9 +6,9 @@
   "status": "pass",
   "visualReview": "pending",
   "artifact": {
-    "path": "/Users/davidgarcia/Library/Mobile Documents/com~apple~CloudDocs/gitHubProjects/newsfeed-docs/docs/architecture/hybrid-feed.html",
-    "sha256": "2bbfaccc2eca8b3a44bdf0329542c198868916b99873f0218d41674a7136916f",
-    "bytes": 808638
+    "path": "hybrid-feed.html",
+    "sha256": "f398910cdbc4b90aac4b1ba173f3104b2bf5135578908a68e23c931b83bbe3b6",
+    "bytes": 808628
   },
   "state": {
     "detail": "read",
@@ -16,7 +16,7 @@
   },
   "chrome": {
     "status": "available",
-    "executable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    "executable": "Google Chrome"
   },
   "diagnostics": [],
   "containment": {

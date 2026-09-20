@@ -1,35 +1,33 @@
 # Redis
 
-## Rol
+## Role
 
-Redis mantiene proyecciones de lectura. PostgreSQL conserva relaciones, posts y estado de eventos. Si Redis pierde datos, los workers pueden reconstruirlos mediante APIs `pkg_*`.
+Redis stores read projections. PostgreSQL retains relationships, posts, and event state. Workers can rebuild Redis through approved `pkg_*` APIs after data loss.
 
-## Claves
+## Keys
 
-| Patrón                  | Tipo       | Score              | Member   | Uso                                    |
-| ----------------------- | ---------- | ------------------ | -------- | -------------------------------------- |
-| `timeline:{userId}`     | Sorted Set | timestamp del post | `postId` | Feed precomputado de cuentas normales  |
-| `author_posts:{userId}` | Sorted Set | timestamp del post | `postId` | Stream de autor usado para celebrities |
+| Pattern                 | Type       | Score          | Member   | Purpose                          |
+| ----------------------- | ---------- | -------------- | -------- | -------------------------------- |
+| `timeline:{userId}`     | Sorted Set | Post timestamp | `postId` | Precomputed regular-account feed |
+| `author_posts:{userId}` | Sorted Set | Post timestamp | `postId` | Celebrity author stream          |
 
-Los helpers contractuales son `redisKeys.timeline(userId)` y `redisKeys.authorPosts(userId)`.
+Contract helpers are `redisKeys.timeline(userId)` and `redisKeys.authorPosts(userId)`.
 
-## Escrituras
+## Writes
 
-El Fanout Worker usa pipeline para añadir el mismo `postId` a followers y recorta entradas antiguas hasta `TIMELINE_MAX_ITEMS`. `ZADD` con `postId` estable vuelve idempotente una reentrega del mismo evento.
+The Fanout Worker pipelines the same `postId` to follower timelines and trims old entries to `TIMELINE_MAX_ITEMS`. Stable `postId` membership makes repeated `ZADD` idempotent. Celebrity posts update only `author_posts:{authorId}`. Follow/rebuild and unfollow/cleanup converge asynchronously.
 
-Para celebrities se actualiza `author_posts:{authorId}` sin empujar a millones de timelines. Follow/rebuild y unfollow/cleanup convergen de manera asíncrona.
+## Reads
 
-## Lecturas
+`TimelineRepository`, not the controller, encapsulates sorted-set reads. `FeedService` hydrates IDs through PostgreSQL repositories, validates visibility, deduplicates, sorts, and applies a stable cursor for equal timestamps.
 
-`TimelineRepository`, no el controller, encapsula `ZRANGE`/`ZREVRANGE` por score. `FeedService` hidrata IDs a través de repositorios PostgreSQL, valida visibilidad, deduplica y ordena. El cursor debe ser estable ante timestamps iguales; la implementación final debe documentar su desempate exacto.
+## Failures
 
-## Fallos
+- Redis failure never authorizes fabricated data or weaker PostgreSQL permissions.
+- Readiness becomes degraded according to runtime policy.
+- Consumers do not ACK before completing the effect or selecting retry/DLQ behavior.
+- Rebuild recovers missing or truncated projections.
 
-- Un error Redis no autoriza a inventar datos ni degradar permisos de PostgreSQL.
-- Readiness se marca degradado/no listo según la política integrada.
-- Un consumer no ACKea hasta completar el efecto o decidir el flujo de retry/DLQ.
-- Rebuild permite recuperar una proyección ausente o truncada.
+## Limits
 
-## Límites
-
-`TIMELINE_MAX_ITEMS` tiene default `1000` y debe ser entero positivo. `CELEBRITY_THRESHOLD` tiene default `100000`; tests usan `5` para cubrir ambos caminos con pocos usuarios.
+`TIMELINE_MAX_ITEMS` defaults to `1000` and must be positive. `CELEBRITY_THRESHOLD` defaults to `100000`; tests use `5` to exercise both strategies with ten users.

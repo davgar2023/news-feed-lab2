@@ -1,71 +1,77 @@
 # News Feed Lab 2
 
-News Feed escalable tipo Twitter/X construido como **monolito modular Node.js + TypeScript con workers independientes**. PostgreSQL es la fuente de verdad, Redis materializa timelines y RabbitMQ transporta eventos publicados mediante transactional outbox.
+[![CI](https://github.com/davgar2023/news-feed-lab2/actions/workflows/ci.yml/badge.svg)](https://github.com/davgar2023/news-feed-lab2/actions/workflows/ci.yml)
+![Node.js](https://img.shields.io/badge/Node.js-20-339933?logo=nodedotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-8-DC382D?logo=redis&logoColor=white)
+![RabbitMQ](https://img.shields.io/badge/RabbitMQ-4-FF6600?logo=rabbitmq&logoColor=white)
+![Nginx](https://img.shields.io/badge/Nginx-1.29-009639?logo=nginx&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![Vitest](https://img.shields.io/badge/Vitest-Tested-6E9F18?logo=vitest&logoColor=white)
+![Zod](https://img.shields.io/badge/Zod-Validated-3E67B1?logo=zod&logoColor=white)
 
-> Estado documental: esta rama parte de `contracts-v1` (`16ef739`). Los nombres de rutinas, eventos, colas, claves y variables descritos como **contratados** existen en `src/contracts` y `src/config`. La implementación ejecutable, migraciones, contenedores y pruebas se verifican después de integrar las ramas especializadas en `develop`.
+A scalable Twitter/X-style news feed implemented as a Node.js and TypeScript modular monolith with independent workers. PostgreSQL is the source of truth, Redis stores rebuildable timeline projections, and RabbitMQ transports events created through a transactional outbox.
 
-## Arquitectura
+## Architecture
 
-El camino síncrono es `Client → Nginx → Controller → Service → Repository → Database → pkg_* → PostgreSQL`. El camino asíncrono es `outbox_events → Outbox Publisher → newsfeed.events → Workers → Redis`.
+The synchronous path is `Client → Nginx → Controller → Service → Repository → Database → pkg_* → PostgreSQL`. The asynchronous path is `outbox_events → Outbox Publisher → newsfeed.events → Workers → Redis`.
 
-![Arquitectura del sistema](docs/architecture/system-architecture.svg)
+![System architecture](docs/architecture/system-architecture.svg)
 
-Principios obligatorios:
+Core guarantees:
 
-- Node.js no ejecuta DML directo sobre `users`, `posts`, `follows`, `outbox_events` o `processed_events`.
-- `newsfeed_app` sólo puede ejecutar rutinas aprobadas de `pkg_users`, `pkg_posts`, `pkg_feed`, `pkg_outbox` y `pkg_lab_seed`.
-- `pkg_posts.create_post` persiste post y evento outbox en una sola transacción.
-- Redis no es fuente de verdad; sus Sorted Sets se pueden reconstruir desde PostgreSQL.
-- Los consumidores RabbitMQ son idempotentes y confirman con ACK manual después del efecto exitoso.
-- Las cuentas normales usan fan-out on write; las cuentas celebrity se mezclan mediante fan-out on read.
+- Node.js never executes direct DML against business tables.
+- The runtime role may only execute approved routines from `pkg_users`, `pkg_posts`, `pkg_feed`, `pkg_outbox`, and `pkg_lab_seed`.
+- `pkg_posts.create_post` persists a post and its outbox event atomically.
+- Redis is not a source of truth and can be rebuilt from PostgreSQL.
+- RabbitMQ consumers use manual acknowledgements and idempotent processing.
+- Regular accounts use fan-out on write; celebrity accounts use fan-out on read.
 
-La explicación completa está en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) y [docs/DESIGN.md](docs/DESIGN.md).
+See [Architecture](docs/ARCHITECTURE.md) and [Design](docs/DESIGN.md) for the complete rationale.
 
-## Requisitos
+## Requirements
 
-- Node.js 20 o superior.
-- npm compatible con `package-lock.json`.
-- Docker Engine y Docker Compose v2 para el entorno integrado.
-- Git con soporte de worktrees.
-- Graphify para el grafo final del repositorio.
-- Archify para regenerar la documentación visual.
+- Node.js 20 or later
+- npm with lockfile support
+- Docker Engine and Docker Compose v2
+- Git with worktree support
+- Graphify for repository architecture analysis
+- Archify for visual architecture regeneration
 
-## Configuración
+## Configuration
 
-Copie `.env.example` como `.env` y ajuste secretos para el entorno local. Nunca reutilice esas credenciales de ejemplo en producción.
+Copy `.env.example` to `.env`, replace every placeholder locally, and keep `.env` out of version control. Percent-encode reserved characters when a password is embedded in a connection URL. Never commit production credentials, access tokens, private URLs, or personal filesystem paths.
 
-| Variable                  | Valor de ejemplo                  | Propósito                                          |
-| ------------------------- | --------------------------------- | -------------------------------------------------- |
-| `NODE_ENV`                | `development`                     | Perfil de ejecución                                |
-| `PORT`                    | `3000`                            | Puerto HTTP                                        |
-| `DATABASE_URL`            | `postgres://newsfeed_app:…`       | Pool del runtime con permisos restringidos         |
-| `DATABASE_OWNER_URL`      | `postgres://newsfeed_owner:…`     | Migraciones, seed y verificaciones administrativas |
-| `REDIS_URL`               | `redis://redis:6379`              | Timelines materializados                           |
-| `RABBITMQ_URL`            | `amqp://newsfeed:…@rabbitmq:5672` | Transporte asíncrono                               |
-| `CELEBRITY_THRESHOLD`     | `100000`                          | Umbral de fan-out on read; pruebas usan `5`        |
-| `TIMELINE_MAX_ITEMS`      | `1000`                            | Máximo de miembros por timeline                    |
-| `OUTBOX_POLL_INTERVAL_MS` | `500`                             | Intervalo del publisher                            |
-| `RABBITMQ_PREFETCH`       | `20`                              | Entregas no confirmadas por consumidor             |
-| `RABBITMQ_MAX_RETRIES`    | `3`                               | Intentos antes de DLQ                              |
-| `TRUST_PROXY`             | `true` por defecto                | Confianza en Nginx                                 |
+| Variable                  | Purpose                                           |
+| ------------------------- | ------------------------------------------------- |
+| `NODE_ENV`                | Runtime profile                                   |
+| `PORT`                    | HTTP port                                         |
+| `DATABASE_URL`            | Restricted runtime database connection            |
+| `DATABASE_ADMIN_URL`      | Administrator connection used only for migrations |
+| `REDIS_URL`               | Redis timeline connection                         |
+| `RABBITMQ_URL`            | RabbitMQ connection                               |
+| `CELEBRITY_THRESHOLD`     | Fan-out-on-read threshold; tests use `5`          |
+| `TIMELINE_MAX_ITEMS`      | Maximum members retained per timeline             |
+| `OUTBOX_POLL_INTERVAL_MS` | Outbox publisher interval                         |
+| `RABBITMQ_PREFETCH`       | Maximum unacknowledged deliveries per consumer    |
+| `RABBITMQ_MAX_RETRIES`    | Attempts before dead-letter routing               |
+| `TRUST_PROXY`             | Whether Express trusts the Nginx proxy            |
 
-## Inicio con Docker
-
-Después de integrar la infraestructura Docker en `develop`:
+## Run with Docker
 
 ```bash
 cp .env.example .env
-docker compose up --build -d postgres redis rabbitmq
-docker compose run --rm app npm run seed
-docker compose up --build -d app nginx outbox-publisher fanout-worker cleanup-worker rebuild-worker
+# Replace all CHANGE_ME values in .env before starting the stack.
+docker compose up --build -d
 docker compose ps
 ```
 
-La inicialización de PostgreSQL debe ejecutarse con `newsfeed_owner`; el servidor y los workers usan `DATABASE_URL` como `newsfeed_app`. Redis y RabbitMQ se levantan como dependencias, no como fuentes de inicialización de datos.
+PostgreSQL initializes through the administrator account and creates the restricted runtime role. The API and workers connect only through `DATABASE_URL`.
 
-## Inicio sin Docker para Node
+## Run Node.js locally
 
-Con PostgreSQL, Redis y RabbitMQ disponibles según `.env`:
+With PostgreSQL, Redis, and RabbitMQ available through your local environment:
 
 ```bash
 npm ci
@@ -73,7 +79,7 @@ npm run build
 npm start
 ```
 
-Los workers son procesos separados:
+Run workers as separate processes:
 
 ```bash
 npm run start:outbox
@@ -82,15 +88,13 @@ npm run start:cleanup
 npm run start:rebuild
 ```
 
-Datos de demostración:
+Generate deterministic lab data through the approved database package:
 
 ```bash
 npm run seed
 ```
 
-El seed contratado invoca `pkg_lab_seed.generate_mock_data`; no inserta tablas desde Node.js.
-
-## Verificación
+## Verification
 
 ```bash
 npm run format:check
@@ -98,58 +102,64 @@ npm run lint
 npm run typecheck
 npm run build
 npm run verify:database-policy
-npm run test
+npm test
 npm run test:integration
 ```
 
-`npm run test:all` ejecuta toda la suite Vitest. Las pruebas de integración requieren PostgreSQL, Redis y RabbitMQ activos. Consulte [docs/TESTING.md](docs/TESTING.md).
+The integration suite requires PostgreSQL, Redis, and RabbitMQ. See [Testing](docs/TESTING.md).
 
 ## Graphify
 
-El grafo sólo es válido cuando analiza el árbol integrado:
+Refresh the graph only from the integrated repository tree:
 
 ```bash
 graphify update .
 ```
 
-Los entregables esperados son `graphify-out/graph.html`, `graphify-out/graph.json` y `graphify-out/GRAPH_REPORT.md`. El análisis y su estado actual están en [docs/GRAPH_ANALYSIS.md](docs/GRAPH_ANALYSIS.md).
+Generated artifacts live in `graphify-out/`. Findings are documented in [Graph Analysis](docs/GRAPH_ANALYSIS.md).
 
 ## Archify
 
-Las fuentes regenerables viven en `docs/architecture/src/`. Defina la instalación local de Archify y regenere cada HTML con el tipo indicado por el sufijo del archivo:
+Regenerable sources live in `docs/architecture/src/`. Set a local Archify installation path without committing it:
 
 ```bash
-export ARCHIFY_DIR=/ruta/a/archify
+export ARCHIFY_DIR=/path/to/archify
 node "$ARCHIFY_DIR/bin/archify.mjs" validate architecture docs/architecture/src/system-architecture.architecture.json --quality showcase --json
 node "$ARCHIFY_DIR/bin/archify.mjs" deliver architecture docs/architecture/src/system-architecture.architecture.json docs/architecture/system-architecture.html --quality showcase --json
 node "$ARCHIFY_DIR/bin/archify.mjs" visual-check docs/architecture/system-architecture.html --json
 ```
 
-Repita con `sequence` para los cinco flujos de secuencia y con `workflow` para `multi-agent-git.workflow.json`. Cada HTML permite exportar el SVG canónico desde `Export → Download SVG`; los SVG versionados junto a los HTML corresponden a esa exportación. Archify conserva UI fija en inglés porque su locale nativo no incluye español; títulos, nodos y relaciones sí están escritos en español.
+Use `sequence` for the five sequence sources and `workflow` for the multi-agent Git source. The [diagram inventory](docs/architecture/README.md) records validation evidence for all seven diagrams.
 
-El [inventario de diagramas](docs/architecture/README.md) registra fuentes, tipos, hashes de HTML/SVG y evidencia browser de los siete entregables.
+## Git model
 
-## Modelo Git
+- `main`: validated releases
+- `develop`: active integration
+- `agent/*`: isolated specialist branches
+- One worktree per agent
+- Incremental Conventional Commits
+- Dependency-aware integration order: contracts → database → infrastructure → users → posts → feed → workers → tests → docs
 
-- `main`: releases validados.
-- `develop`: integración activa.
-- `agent/*`: propiedad aislada por especialidad.
-- Un worktree por agente; nunca dos agentes en el mismo directorio.
-- Conventional Commits incrementales y árbol limpio antes de entregar.
-- Orden sugerido: contracts → database → infrastructure → users → posts → feed → workers → tests → docs.
+See [Git Workflow](docs/GIT_WORKFLOW.md) and [Multi-Agent Development](docs/MULTI_AGENT.md).
 
-Véanse [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md) y [docs/MULTI_AGENT.md](docs/MULTI_AGENT.md).
+## Documentation
 
-## Documentación
-
-- [Diseño](docs/DESIGN.md)
-- [Arquitectura](docs/ARCHITECTURE.md)
+- [Design](docs/DESIGN.md)
+- [Architecture](docs/ARCHITECTURE.md)
 - [PostgreSQL](docs/DATABASE.md)
 - [Redis](docs/REDIS.md)
 - [RabbitMQ](docs/RABBITMQ.md)
 - [Fan-out](docs/FANOUT.md)
-- [Transactional outbox](docs/OUTBOX.md)
-- [Workflow Git](docs/GIT_WORKFLOW.md)
-- [Trabajo multiagente](docs/MULTI_AGENT.md)
-- [Análisis Graphify](docs/GRAPH_ANALYSIS.md)
-- [Pruebas](docs/TESTING.md)
+- [Transactional Outbox](docs/OUTBOX.md)
+- [Git Workflow](docs/GIT_WORKFLOW.md)
+- [Multi-Agent Development](docs/MULTI_AGENT.md)
+- [Graph Analysis](docs/GRAPH_ANALYSIS.md)
+- [Testing](docs/TESTING.md)
+- [Final Validation](FINAL_VALIDATION.md)
+
+## Security and privacy
+
+- No production secrets are stored in this repository.
+- `.env` files are ignored; `.env.example` contains placeholders only.
+- CI uses isolated test-only credentials.
+- Logs and documentation must not contain tokens, private endpoints, personal data payloads, or local absolute paths.

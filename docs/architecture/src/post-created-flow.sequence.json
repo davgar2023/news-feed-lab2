@@ -2,7 +2,8 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "Creación de post — contrato objetivo",
+    "title": "Post Creation — Target Contract",
+    "locale": "en",
     "viewBox": [1060, 650],
     "column_fit": "spread",
     "quality_profile": "showcase"
@@ -31,9 +32,9 @@
     { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "pkg_posts" }
   ],
   "segments": [
-    { "from": 150, "to": 300, "label": "Solicitud síncrona" },
-    { "from": 315, "to": 430, "label": "Transacción atómica" },
-    { "from": 445, "to": 575, "label": "Respuesta" }
+    { "from": 150, "to": 300, "label": "Synchronous Request" },
+    { "from": 315, "to": 430, "label": "Atomic Transaction" },
+    { "from": 445, "to": 575, "label": "Response" }
   ],
   "messages": [
     {
@@ -59,7 +60,7 @@
       "y": 378,
       "label": "Post + outbox event committed",
       "variant": "emphasis",
-      "note": "Una sola transacción PostgreSQL"
+      "note": "One PostgreSQL transaction"
     },
     { "from": "database", "to": "repository", "y": 424, "label": "Post", "variant": "return" },
     { "from": "repository", "to": "service", "y": 470, "label": "Post", "variant": "return" },

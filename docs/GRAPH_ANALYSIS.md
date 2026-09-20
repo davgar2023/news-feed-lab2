@@ -1,97 +1,64 @@
-# Análisis Graphify
+# Graphify Analysis
 
-## Snapshot final analizado
+## Analyzed snapshot
 
-| Campo                    | Valor                                                                       |
-| ------------------------ | --------------------------------------------------------------------------- |
-| Rama                     | `develop`                                                                   |
-| Commit base del análisis | `56a49b2`                                                                   |
-| Graphify                 | `0.9.56`                                                                    |
-| Corpus                   | 105 archivos, ~27,124 palabras                                              |
-| Grafo                    | 710 nodos, 1,559 relaciones, 46 comunidades                                 |
-| Incremento desde Wave 0  | 573 nodos y 1,411 relaciones                                                |
-| Salud                    | 0 endpoints faltantes, 0 dangling edges, 0 self-loops, 0 colapsos dirigidos |
+| Field               | Value                                                                     |
+| ------------------- | ------------------------------------------------------------------------- |
+| Integration branch  | `develop`                                                                 |
+| Graphify            | `0.9.56`                                                                  |
+| Corpus              | 105 files, approximately 27,124 words                                     |
+| Graph               | 710 nodes, 1,559 relationships, 46 communities                            |
+| Growth since Wave 0 | 573 nodes and 1,411 relationships                                         |
+| Health              | 0 missing endpoints, 0 dangling edges, 0 self-loops, 0 directed collapses |
 
-Los artefactos reproducibles están en `graphify-out/graph.json`,
-`graphify-out/graph.html` y `graphify-out/GRAPH_REPORT.md`. Los HTML, SVG y PNG
-generados por Archify se excluyen del corpus mediante `.graphifyignore`; sus fuentes
-JSON y el inventario Markdown siguen formando parte de la revisión de deriva.
+Reproducible artifacts live in `graphify-out/graph.json`, `graphify-out/graph.html`, and `graphify-out/GRAPH_REPORT.md`. Archify HTML, SVG, and PNG outputs are excluded through `.graphifyignore`; their JSON sources and Markdown inventory remain part of drift review.
 
-## Dependencias y capas
+## Dependencies and layers
 
-- Los controllers importan servicios o contratos HTTP; no importan `pg`, `ioredis` ni
-  `amqplib`.
-- Los repositories de Users, Posts, Feed y Outbox convergen en `Database` y en la
-  allowlist `DATABASE_ROUTINES`.
-- `Database.ts` es el único módulo que construye `SELECT * FROM pkg_*` y `CALL pkg_*`;
-  el scanner AST confirma que no existe SQL de tablas de negocio en runtime.
-- `TimelineRepository` es la frontera entre Feed y `RedisService`. El path Graphify
-  `FeedController <- feed.routes.ts <- feed/index.ts -> TimelineRepository.ts -> RedisService`
-  muestra que Redis no llega al controller.
-- `OutboxPublisher <- outboxPublisher.ts -> RabbitMQConnection` confirma que la
-  publicación asíncrona vive en el worker y no en el endpoint de Posts.
+- Controllers import services or HTTP contracts, not `pg`, `ioredis`, or `amqplib`.
+- Users, Posts, Feed, and Outbox repositories converge on `Database` and `DATABASE_ROUTINES`.
+- `Database.ts` is the only module that builds `SELECT * FROM pkg_*` or `CALL pkg_*`; the AST scanner finds no runtime business-table SQL.
+- `TimelineRepository` separates Feed from `RedisService`; Redis does not reach the controller.
+- `OutboxPublisher` owns RabbitMQ publication instead of the Posts endpoint.
 
-## Rutas críticas
+## Critical paths
 
-### Creación y fan-out
+### Post creation and fan-out
 
-`PostController -> PostService -> PostRepository -> Database ->
-pkg_posts.create_post()` persiste post y evento de outbox en una única función SQL.
-`OutboxPublisher -> RabbitMQConnection -> FanoutWorker -> UserRepository ->
-pkg_users.get_followers() -> RedisService.fanOutPost()` materializa timelines para
-autores normales. Las celebridades escriben en `author_posts:{userId}`.
+`PostController → PostService → PostRepository → Database → pkg_posts.create_post()` persists the post and outbox event atomically. `OutboxPublisher → RabbitMQConnection → FanoutWorker → UserRepository → pkg_users.get_followers() → RedisService.fanOutPost()` materializes regular-author timelines. Celebrity posts go to `author_posts:{userId}`.
 
-### Timeline híbrido
+### Hybrid timeline
 
-`FeedController -> FeedService -> TimelineRepository/FeedRepository` combina
-`timeline:{userId}` con posts recientes de cuentas celebridad. Antes de responder,
-`pkg_feed.validate_feed_items()` elimina posts borrados o ya no autorizados; el
-servicio deduplica, ordena descendente y pagina con cursor compuesto estable.
+`FeedController → FeedService → TimelineRepository/FeedRepository` combines `timeline:{userId}` with recent posts from followed celebrity accounts. `pkg_feed.validate_feed_items()` removes deleted or unauthorized posts before deduplication, descending sort, and stable cursor pagination.
 
-### Follow y unfollow
+### Follow and unfollow
 
-`UserController -> UserService -> UserRepository -> pkg_users.follow_user()` y
-`pkg_users.unfollow_user()` generan eventos en la misma transacción. Rebuild y
-Cleanup consumen esos eventos, son idempotentes mediante `processed_events` y
-actualizan únicamente proyecciones Redis reconstruibles.
+`UserController → UserService → UserRepository → pkg_users.follow_user()/unfollow_user()` commits the relationship and event together. Rebuild and Cleanup consume those events, use `processed_events` for idempotency, and update only rebuildable Redis projections.
 
-## Centralidad y acoplamiento
+## Centrality and coupling
 
-Los nodos con mayor conectividad son `User` (43), `Post` (38),
-`RedisService` (32), `RabbitMQConnection` (31), `database` (22),
-`vitest` (20), `loadConfig()` (19) y `RoutineExecutor` (19). La centralidad de
-los modelos refleja su uso transversal en contratos y pruebas; la de los adaptadores es esperada en
-adaptadores de infraestructura y fronteras de persistencia; ninguno mezcla lógica
-HTTP, SQL de negocio y mensajería en el mismo módulo.
+The highest-connectivity nodes are `User`, `Post`, `RedisService`, `RabbitMQConnection`, `database`, `vitest`, `loadConfig()`, and `RoutineExecutor`. Model centrality reflects use across contracts and tests; infrastructure centrality is expected at persistence and messaging boundaries. No module combines HTTP behavior, business-table SQL, and messaging logic.
 
-Graphify no detectó ciclos de imports. El análisis SCC encontró tres ciclos internos
-de dos métodos dentro de `RabbitMQConnection`: `connect/scheduleReconnect`,
-`publish/publishBuffer` y `consume/startConsumer`. Son bucles operativos de
-reconexión/configuración dentro de un único adaptador, no dependencias circulares
-entre módulos.
+Graphify reports no import cycles. Internal call loops in `RabbitMQConnection` represent connection recovery and consumer restart behavior within one adapter, not circular module dependencies.
 
-## Conexiones semánticas
+## Semantic findings
 
-La extracción documental confirmó tres relaciones que también están implementadas:
-
-- acceso mediante rutinas es equivalente al API de paquetes PostgreSQL;
-- post y evento se escriben atómicamente mediante el outbox;
-- las proyecciones Redis son reconstruibles porque PostgreSQL es la fuente de verdad.
-
-Los hyperedges de Graphify agrupan correctamente el flujo durable de eventos, el
-timeline híbrido y la evidencia de release multiagente.
+- Routines-only access matches the PostgreSQL package API.
+- Posts and their events are written atomically through the outbox.
+- Redis projections are rebuildable because PostgreSQL remains authoritative.
+- Hyperedges correctly group durable delivery, hybrid timeline, and multi-agent release evidence.
 
 ## Architecture drift gate
 
-| Elemento documentado              | Evidencia de código/grafo                          | Diagrama                                      | Estado |
-| --------------------------------- | -------------------------------------------------- | --------------------------------------------- | ------ |
-| `users`, `posts`, `feed`          | `src/modules/*` y comunidades Users/Post/Feed      | `system-architecture`                         | PASS   |
-| `Database` y `pkg_*`              | `Database.ts`, migraciones 003–006                 | `system-architecture`, `post-created-flow`    | PASS   |
-| Outbox Publisher                  | `src/workers/outboxPublisher.ts`                   | `transactional-outbox`                        | PASS   |
-| Fanout/Cleanup/Rebuild            | `src/workers/*Worker.ts`                           | `fanout-write`, `follow-unfollow`             | PASS   |
-| `newsfeed.events` y cuatro queues | contratos + `RabbitMQConnection.configureTopology` | `system-architecture`, `transactional-outbox` | PASS   |
-| `timeline:*` y `author_posts:*`   | `redisKeys`, `RedisService`                        | `fanout-write`, `hybrid-feed`                 | PASS   |
-| Feed híbrido                      | `FeedService.timeline()`                           | `hybrid-feed`                                 | PASS   |
-| Git branches/worktrees            | historial Git y `git worktree list`                | `multi-agent-git`                             | PASS   |
+| Documented element                | Code/graph evidence                | Diagram                                       | Status |
+| --------------------------------- | ---------------------------------- | --------------------------------------------- | ------ |
+| `users`, `posts`, `feed`          | `src/modules/*`                    | `system-architecture`                         | PASS   |
+| `Database` and `pkg_*`            | `Database.ts`, migrations 003–006  | `system-architecture`, `post-created-flow`    | PASS   |
+| Outbox Publisher                  | `src/workers/outboxPublisher.ts`   | `transactional-outbox`                        | PASS   |
+| Fanout/Cleanup/Rebuild            | `src/workers/*Worker.ts`           | `fanout-write`, `follow-unfollow`             | PASS   |
+| `newsfeed.events` and four queues | Contracts and topology setup       | `system-architecture`, `transactional-outbox` | PASS   |
+| `timeline:*` and `author_posts:*` | `redisKeys`, `RedisService`        | `fanout-write`, `hybrid-feed`                 | PASS   |
+| Hybrid feed                       | `FeedService.timeline()`           | `hybrid-feed`                                 | PASS   |
+| Git branches and worktrees        | Git history and worktree inventory | `multi-agent-git`                             | PASS   |
 
-No se observó deriva arquitectónica que requiera cambiar código o diagramas.
+No architecture drift requiring code or diagram changes was found.
