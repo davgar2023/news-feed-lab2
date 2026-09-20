@@ -1,0 +1,12 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+node_modules
+dist
+coverage
+graphify-out
+docs/architecture/archify/outputs
+*.log
+.DS_Store

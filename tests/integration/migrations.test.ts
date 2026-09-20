@@ -1,10 +1,9 @@
-import { execFile } from "node:child_process";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
-import { promisify } from "node:util";
 
+import { Pool } from "pg";
 import { describe, expect, it, type TestContext } from "vitest";
 
-const execute = promisify(execFile);
 const migrationUrl = process.env.MIGRATION_DATABASE_URL;
 const suiteReason = migrationUrl
   ? ""
@@ -16,13 +15,31 @@ describe(`ordered database migrations${suiteReason}`, () => {
       context.skip("MIGRATION_DATABASE_URL must target a disposable PostgreSQL database");
       return;
     }
-    const script = path.resolve("database/scripts/migrate.sh");
-    const environment = { ...process.env, DATABASE_ADMIN_URL: migrationUrl };
+    const migrationsDirectory = path.resolve("database/migrations");
+    const migrations = (await readdir(migrationsDirectory))
+      .filter((file) => file.endsWith(".sql"))
+      .sort();
+    const pool = new Pool({ connectionString: migrationUrl });
 
-    const first = await execute("sh", [script], { env: environment });
-    const second = await execute("sh", [script], { env: environment });
+    try {
+      for (let pass = 0; pass < 2; pass += 1) {
+        for (const migration of migrations) {
+          const sql = await readFile(path.join(migrationsDirectory, migration), "utf8");
+          await pool.query(sql);
+        }
+      }
+    } finally {
+      await pool.end();
+    }
 
-    expect(first.stdout).toContain("Applying 001_roles.sql");
-    expect(second.stdout).toContain("Applying 007_runtime_permissions.sql");
+    expect(migrations).toEqual([
+      "001_roles.sql",
+      "002_core_schema.sql",
+      "003_users_api.sql",
+      "004_posts_feed_api.sql",
+      "005_outbox_api.sql",
+      "006_lab_seed.sql",
+      "007_runtime_permissions.sql",
+    ]);
   }, 30_000);
 });
