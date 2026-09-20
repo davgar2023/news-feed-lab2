@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Fan-out on write — cuenta normal",
+    "viewBox": [1080, 650],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "transactional outbox"
+    },
+    { "id": "publisher", "type": "backend", "label": "Outbox Publisher", "sublabel": "poller" },
+    { "id": "rabbit", "type": "messagebus", "label": "RabbitMQ", "sublabel": "newsfeed.events" },
+    { "id": "worker", "type": "backend", "label": "Fanout Worker", "sublabel": "feed.fanout" },
+    { "id": "users", "type": "security", "label": "pkg_users", "sublabel": "get_followers" },
+    { "id": "redis", "type": "database", "label": "Redis", "sublabel": "timeline:{userId}" }
+  ],
+  "segments": [
+    { "from": 150, "to": 300, "label": "Publicación" },
+    { "from": 315, "to": 445, "label": "Expansión" },
+    { "from": 460, "to": 580, "label": "Materialización" }
+  ],
+  "messages": [
+    { "from": "publisher", "to": "postgres", "y": 180, "label": "pkg_outbox.get_pending_events" },
+    {
+      "from": "postgres",
+      "to": "publisher",
+      "y": 218,
+      "label": "post.created",
+      "variant": "return"
+    },
+    {
+      "from": "publisher",
+      "to": "rabbit",
+      "y": 256,
+      "label": "publish persistent: post.created",
+      "variant": "emphasis"
+    },
+    { "from": "publisher", "to": "postgres", "y": 294, "label": "pkg_outbox.mark_published" },
+    {
+      "from": "rabbit",
+      "to": "worker",
+      "y": 332,
+      "label": "deliver feed.fanout",
+      "variant": "emphasis"
+    },
+    {
+      "from": "worker",
+      "to": "users",
+      "y": 370,
+      "label": "pkg_users.get_followers(authorId)",
+      "variant": "security"
+    },
+    { "from": "users", "to": "worker", "y": 408, "label": "followers", "variant": "return" },
+    {
+      "from": "worker",
+      "to": "redis",
+      "y": 446,
+      "label": "pipeline ZADD postId",
+      "variant": "emphasis"
+    },
+    { "from": "worker", "to": "redis", "y": 484, "label": "trim to TIMELINE_MAX_ITEMS" },
+    {
+      "from": "worker",
+      "to": "postgres",
+      "y": 522,
+      "label": "pkg_outbox.try_process_event",
+      "variant": "security"
+    },
+    {
+      "from": "worker",
+      "to": "rabbit",
+      "y": 560,
+      "label": "ACK after success",
+      "variant": "return"
+    }
+  ]
+}
