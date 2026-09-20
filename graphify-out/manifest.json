@@ -474,10 +474,10 @@
     "semantic_hash": "f7d9dfb728929eb832d9c26a8a777f4e"
   },
   "docker-compose.yml": {
-    "mtime": 1789479456.1959462,
-    "seen": 1789537380.60951,
-    "ast_hash": "697590a787ba8804aba182922e7d8df7",
-    "semantic_hash": "697590a787ba8804aba182922e7d8df7"
+    "mtime": 1789867693.2735112,
+    "seen": 1789867705.136091,
+    "ast_hash": "475618c4c10f9c71420f37b1205cd8cb",
+    "semantic_hash": ""
   },
   "docs/ARCHITECTURE.md": {
     "mtime": 1789518649.4272733,
@@ -510,10 +510,10 @@
     "semantic_hash": "400f9680d3d63c9c749756dd65800d40"
   },
   "docs/GRAPH_ANALYSIS.md": {
-    "mtime": 1789518649.4318523,
-    "seen": 1789537380.609518,
-    "ast_hash": "63216df3fd18f7e4acc6a44bbbbf6926",
-    "semantic_hash": "63216df3fd18f7e4acc6a44bbbbf6926"
+    "mtime": 1789867725.5722575,
+    "seen": 1789867731.8603551,
+    "ast_hash": "04d7c2eabde691023b9a11b23eb0df6d",
+    "semantic_hash": ""
   },
   "docs/MULTI_AGENT.md": {
     "mtime": 1789518649.433517,
@@ -550,5 +550,89 @@
     "seen": 1789537380.609527,
     "ast_hash": "bdf2ea0e575afb1bb798c9a229259845",
     "semantic_hash": "bdf2ea0e575afb1bb798c9a229259845"
+  },
+  "scripts/seed.ts": {
+    "mtime": 1789537012.327288,
+    "seen": 1789867705.135744,
+    "ast_hash": "14106bb99ee42a26971f71f506543762",
+    "semantic_hash": ""
+  },
+  "scripts/verify/database-policy.ts": {
+    "mtime": 1789537012.3276856,
+    "seen": 1789867705.135749,
+    "ast_hash": "f7994c8869b318c42465cd4fc04e783f",
+    "semantic_hash": ""
+  },
+  "scripts/verify/migrations-docker.sh": {
+    "mtime": 1789537012.3280602,
+    "seen": 1789867705.1357539,
+    "ast_hash": "145876c37262d9140a48f551f50e2742",
+    "semantic_hash": ""
+  },
+  "src/app.test.ts": {
+    "mtime": 1789536859.4480052,
+    "seen": 1789867705.1357598,
+    "ast_hash": "e4fe4abc5becb617337c24a59469a67a",
+    "semantic_hash": ""
+  },
+  "src/app.ts": {
+    "mtime": 1789536859.448486,
+    "seen": 1789867705.135766,
+    "ast_hash": "f2c1e7afa227ec8418dc3a2cc47242c0",
+    "semantic_hash": ""
+  },
+  "src/server.test.ts": {
+    "mtime": 1789536859.4489548,
+    "seen": 1789867705.135983,
+    "ast_hash": "4e0ab93d887e6c955fdc79b1c710ca21",
+    "semantic_hash": ""
+  },
+  "src/server.ts": {
+    "mtime": 1789536859.4492793,
+    "seen": 1789867705.135987,
+    "ast_hash": "dc069c4ef7bb0566bf24ccf10fcf16a7",
+    "semantic_hash": ""
+  },
+  "tests/architecture/database-policy.test.ts": {
+    "mtime": 1789537012.3285809,
+    "seen": 1789867705.136034,
+    "ast_hash": "ebc0ce70a0127c0d896f6784de256850",
+    "semantic_hash": ""
+  },
+  "tests/integration/migrations.test.ts": {
+    "mtime": 1789867693.2741656,
+    "seen": 1789867705.1360378,
+    "ast_hash": "bc8e3541e653a7e5fa2f506444a3adc4",
+    "semantic_hash": ""
+  },
+  "tests/integration/newsfeed-flow.test.ts": {
+    "mtime": 1789537012.329243,
+    "seen": 1789867705.1360419,
+    "ast_hash": "ba15398ed8ef1ae1b45b4d2d7b70d91c",
+    "semantic_hash": ""
+  },
+  "tests/integration/runtime-permissions.test.ts": {
+    "mtime": 1789537012.3295124,
+    "seen": 1789867705.1360462,
+    "ast_hash": "5172ce073887250b6fecd003040169da",
+    "semantic_hash": ""
+  },
+  "tests/unit/database.test.ts": {
+    "mtime": 1789537012.3298585,
+    "seen": 1789867705.1360488,
+    "ast_hash": "9011adc475528e219639306949b5d482",
+    "semantic_hash": ""
+  },
+  "tests/unit/rabbitmq-connection.test.ts": {
+    "mtime": 1789537012.3303597,
+    "seen": 1789867705.136053,
+    "ast_hash": "eb0f332e7a5ac08e6c5e78ffc44d018d",
+    "semantic_hash": ""
+  },
+  ".github/workflows/ci.yml": {
+    "mtime": 1789537012.3232288,
+    "seen": 1789867705.136079,
+    "ast_hash": "9ac93539c4619f5db0066461cbcca2e8",
+    "semantic_hash": ""
   }
 }

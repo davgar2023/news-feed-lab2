@@ -5,11 +5,11 @@
 | Campo                    | Valor                                                                       |
 | ------------------------ | --------------------------------------------------------------------------- |
 | Rama                     | `develop`                                                                   |
-| Commit base del análisis | `e366b55`                                                                   |
+| Commit base del análisis | `7bab18d`                                                                   |
 | Graphify                 | `0.9.56`                                                                    |
-| Corpus                   | 66 archivos de código/configuración y 15 documentos                         |
-| Grafo                    | 631 nodos, 1,264 relaciones, 40 comunidades                                 |
-| Incremento desde Wave 0  | 494 nodos y 1,116 relaciones                                                |
+| Corpus                   | 104 archivos, ~26,416 palabras                                              |
+| Grafo                    | 705 nodos, 1,555 relaciones, 31 comunidades                                 |
+| Incremento desde Wave 0  | 568 nodos y 1,407 relaciones                                                |
 | Salud                    | 0 endpoints faltantes, 0 dangling edges, 0 self-loops, 0 colapsos dirigidos |
 
 Los artefactos reproducibles están en `graphify-out/graph.json`,
@@ -57,9 +57,10 @@ actualizan únicamente proyecciones Redis reconstruibles.
 
 ## Centralidad y acoplamiento
 
-Los nodos con mayor conectividad son `RedisService` (30),
-`RabbitMQConnection` (26), `RoutineExecutor` (19), `Database` (18),
-`UserRepository` (16) y `OutboxRepository` (16). Esta centralidad es esperada en
+Los nodos con mayor conectividad son `User` (43), `Post` (38),
+`RedisService` (32), `RabbitMQConnection` (31), `database` (22),
+`vitest` (20), `loadConfig()` (19) y `RoutineExecutor` (19). La centralidad de
+los modelos refleja su uso transversal en contratos y pruebas; la de los adaptadores es esperada en
 adaptadores de infraestructura y fronteras de persistencia; ninguno mezcla lógica
 HTTP, SQL de negocio y mensajería en el mismo módulo.
 
