@@ -1,4 +1,4 @@
-# News Feed Lab 2
+# News Feed Lab
 
 [![CI](https://github.com/davgar2023/news-feed-lab2/actions/workflows/ci.yml/badge.svg)](https://github.com/davgar2023/news-feed-lab2/actions/workflows/ci.yml)
 ![Node.js](https://img.shields.io/badge/Node.js-20-339933?logo=nodedotjs&logoColor=white)
